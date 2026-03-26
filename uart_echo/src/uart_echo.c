@@ -31,6 +31,11 @@
  */
 
 #include "ti_drivers_config.h"
+#include "flash.h"
+
+#include <string.h>     // For strlen
+
+#define TEST_FLASH_ADDR 0x0003F000 //Page 252
 
 uint8_t gBuffer[CONFIG_UART_BUFFER_LENGTH] = {0};
 
@@ -49,6 +54,29 @@ int main(void)
     if (uartHandle == NULL) {
         // UART_open failed
         __BKPT();
+    }
+
+    // FLASH READ/WRITE TEST
+    
+    const char* testData = "Flash Test Successful!\r\n";
+    uint32_t dataSize = strlen(testData) + 1;
+    uint8_t readBuffer[64] = {0};
+
+    // 1. Erase the target page
+    if (!flash_erase_page(TEST_FLASH_ADDR)) {
+        UART_write(uartHandle, "Flash Erase Failed!\r\n", 21, &wrCount);
+    } else {
+        // 2. Write the test data to the erased page
+        if (!flash_write(TEST_FLASH_ADDR, testData, dataSize)) {
+            UART_write(uartHandle, "Flash Write Failed!\r\n", 21, &wrCount);
+        } else {
+            // 3. Read the data back from flash into our buffer
+            flash_read(TEST_FLASH_ADDR, readBuffer, dataSize);
+
+            // 4. Send the read data out over UART to verify it matches
+            UART_write(uartHandle, "Read from Flash: ", 17, &wrCount);
+            UART_write(uartHandle, readBuffer, dataSize - 1, &wrCount); 
+        }
     }
 
     while (1) {
