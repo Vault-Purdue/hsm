@@ -5,10 +5,10 @@ None of this is finalized; this is all subject to change.
 
 ## UART Settings
 
-UART communication will be held with the following standard settings:
-Baud rate: 115200 bps
-Parity: none
-Data size: 8
+UART communication will be held with the following standard settings:  
+Baud rate: 115200 bps  
+Parity: none  
+Data size: 8  
 Stop bits: 1
 
 ## UART Protocol Overview
@@ -30,20 +30,20 @@ This field identifies the type of message the frame is, and thus how the payload
 
 | Message Type | Byte Value | Is Payload Encrypted? | Payload Content | Relevant Host Command | Sender |
 | --- | --- | --- | --- | --- | --- |
-| Session Open | 0x00 | No | ??? | AUTH | Host | 
-| Key Exchange | 0x01 | No | ??? | AUTH | Both |
-| PIN Exchange | 0x02 | Yes? | PIN, result | AUTH | Both |
+| Session Open | 0x00 | No | None? | AUTH | Host | 
+| Key Exchange | 0x01 | No | Key exchange information? | AUTH | Both |
+| PIN Exchange | 0x02 | Yes? | PIN, result of PIN attempt | AUTH | Both |
 | Session Close | 0x0F | No | None | CLOSE | Host (Both?) |
 | Status Query | 0x10 | No | Requested status/filesystem information | STATUS | Host |
 | Status Response | 0x11 | No | Requested status/filesystem information | STATUS | HSM |
-| File Transfer Request | 0x10 | No | ??? | READ/WRITE | Host |
-| File Start | 0x11 | Yes | ??? | READ/WRITE | Both |
-| File Block | 0x12 | Yes | ??? | READ/WRITE | Both |
-| File End | 0x13 | Yes | ??? | READ/WRITE | Both |
-| File Transfer Complete | 0x14 | No | Checksum for whole file verification. | READ/WRITE | Both |
+| File Transfer Request | 0x10 | No | Whether request is for an upload or download, name/path of requested file | READ/WRITE | Host |
+| File Start | 0x11 | Yes | First block of file | READ/WRITE | Both |
+| File Block | 0x12 | Yes | Any block of file | READ/WRITE | Both |
+| File End | 0x13 | Yes | Final block of file | READ/WRITE | Both |
+| File Transfer Complete | 0x14 | No | Checksum for whole file verification | READ/WRITE | Both |
 | File Request ACK | 0xF0 | No | None | READ/WRITE | Both |
 | File Block ACK | 0xF1 | No | None | READ/WRITE | Both |
-| File Transfer Complete ACK | 0xF2 | No | None | READ/WRITE | Both |
+| File Transfer Complete ACK | 0xF2 | No | Whether checksum verification succeeded or not | READ/WRITE | Both |
 
 ## Payload Length
 
