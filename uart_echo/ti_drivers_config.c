@@ -90,3 +90,65 @@ void UART0_IRQHandler(void)
 {
     UARTMSP_interruptHandler((UART_Handle) &UART_config[0]);
 }
+
+/*
+ *  =============================== GPIO ===============================
+ */
+void SYS_initPower(void)
+{
+    DL_GPIO_reset(GPIOA);
+    DL_GPIO_reset(GPIOB);
+    DL_GPIO_reset(GPIOC);
+    DL_TimerG_reset(TIMER_0_INST);
+
+    DL_GPIO_enablePower(GPIOA);
+    DL_GPIO_enablePower(GPIOB);
+    DL_GPIO_enablePower(GPIOC);
+    DL_TimerG_enablePower(TIMER_0_INST);
+    delay_cycles(POWER_STARTUP_DELAY);
+}
+
+void GPIO_init(void)
+{
+    DL_GPIO_initDigitalOutput(GPIO_RED_LED_IOMUX);
+    DL_GPIO_clearPins(GPIOA, GPIO_RED_LED_PIN);
+    DL_GPIO_enableOutput(GPIOA, GPIO_RED_LED_PIN);
+}
+/*
+ *  =============================== TIMER ===============================
+ */
+ /*
+ * Timer clock configuration to be sourced by BUSCLK /  (8000000 Hz)
+ * timerClkFreq = (timerClkSrc / (timerClkDivRatio * (timerClkPrescale + 1)))
+ *   40000 Hz = 8000000 Hz / (4 * (199 + 1))
+ */
+static const DL_TimerG_ClockConfig gTIMER_0ClockConfig = {
+    .clockSel    = DL_TIMER_CLOCK_BUSCLK,
+    .divideRatio = DL_TIMER_CLOCK_DIVIDE_4,
+    .prescale    = 199U,
+};
+
+/*
+ * Timer load value (where the counter starts from) is calculated as (timerPeriod * timerClockFreq) - 1
+ * TIMER_0_INST_LOAD_VALUE = (500ms * 40000 Hz) - 1
+ */
+static const DL_TimerG_TimerConfig gTIMER_0TimerConfig = {
+    .period     = TIMER_0_INST_LOAD_VALUE,
+    .timerMode  = DL_TIMER_TIMER_MODE_PERIODIC_UP,
+    .startTimer = DL_TIMER_STOP,
+};
+
+void TIMER_0_init(void) {
+
+    DL_TimerG_setClockConfig(TIMER_0_INST,
+        (DL_TimerG_ClockConfig *) &gTIMER_0ClockConfig);
+
+    DL_TimerG_initTimerMode(TIMER_0_INST,
+        (DL_TimerG_TimerConfig *) &gTIMER_0TimerConfig);
+    DL_TimerG_enableInterrupt(TIMER_0_INST , DL_TIMERG_INTERRUPT_ZERO_EVENT);
+    DL_TimerG_enableClock(TIMER_0_INST);
+
+    DL_TimerG_enableEvent(TIMER_0_INST, DL_TIMERG_EVENT_ROUTE_1, (DL_TIMERG_EVENT_ZERO_EVENT));
+
+    DL_TimerG_setPublisherChanID(TIMER_0_INST, DL_TIMERG_PUBLISHER_INDEX_0, TIMER_0_INST_PUB_0_CH);
+}

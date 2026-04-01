@@ -35,14 +35,30 @@
 #include <stdio.h>
 
 #include <ti/devices/msp/msp.h>
+#include <ti/driverlib/driverlib.h>
 #include <ti/driverlib/dl_gpio.h>
+#include <ti/driverlib/m0p/dl_core.h>
 #include <ti/drivers/UART.h>
 #include <ti/drivers/uart/UARTMSPM0.h>
 
 /* clang-format off */
+#define POWER_STARTUP_DELAY                                                 (16)
 
+/* Defines for UART 0 */
 #define CONFIG_UART_COUNT 1
 #define CONFIG_UART_BUFFER_LENGTH 1
+
+/* Defines for GPIO */
+#define GPIO_RED_LED_PORT                                                (GPIOA)
+#define GPIO_RED_LED_PIN                                         (DL_GPIO_PIN_0)
+#define GPIO_RED_LED_IOMUX                                        (IOMUX_PINCM1)
+
+/* Defines for TIMER_0 */
+#define TIMER_0_INST                                                     (TIMG0)
+#define TIMER_0_INST_IRQHandler                                 TIMG0_IRQHandler
+#define TIMER_0_INST_INT_IRQN                                   (TIMG0_INT_IRQn)
+#define TIMER_0_INST_LOAD_VALUE                                         (19999U)
+#define TIMER_0_INST_PUB_0_CH                                                (1)
 
 extern const uint_least8_t CONFIG_UART_0;
 extern const uint_least8_t UART_count;
@@ -51,6 +67,9 @@ uint8_t rxBuffer[CONFIG_UART_BUFFER_LENGTH];
 uint8_t txBuffer[CONFIG_UART_BUFFER_LENGTH];
 
 /* clang-format on */
+void SYS_initPower(void);
 void UART1_IRQHandler(void);
+void GPIO_init(void);
+void TIMER_0_init(void);
 
 #endif /* ti_drivers_config_h */

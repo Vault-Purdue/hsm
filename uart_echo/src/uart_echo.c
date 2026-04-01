@@ -31,11 +31,12 @@
  */
 
 #include "ti_drivers_config.h"
-#include "flash.h"
+#define DELAY (8000000)
+//#include "flash.h"
 
-#include <string.h>     // For strlen
+//#include <string.h>     // For strlen
 
-#define TEST_FLASH_ADDR 0x0003F000 //Page 252
+//#define TEST_FLASH_ADDR 0x0003F000 //Page 252
 
 uint8_t gBuffer[CONFIG_UART_BUFFER_LENGTH] = {0};
 
@@ -46,7 +47,12 @@ int main(void)
     UART_Params params;
     UART_Handle uartHandle;
 
-    DL_GPIO_enablePower(GPIOA);
+    //Peripheral Init
+    SYS_initPower();
+    GPIO_init();
+    TIMER_0_init();
+    
+    NVIC_EnableIRQ(TIMER_0_INST_INT_IRQN);
 
     UART_Params_init(&params);
     //UART is configured for default baudrate of 9600bps
@@ -58,10 +64,10 @@ int main(void)
 
     // FLASH READ/WRITE TEST
     
-    const char* testData = "Flash Test Successful!\r\n";
-    uint32_t dataSize = strlen(testData) + 1;
-    uint8_t readBuffer[64] = {0};
-
+    //const char* testData = "Flash Test Successful!\r\n";
+    //uint32_t dataSize = strlen(testData) + 1;
+    //uint8_t readBuffer[64] = {0};
+/*
     // 1. Erase the target page
     if (!flash_erase_page(TEST_FLASH_ADDR)) {
         UART_write(uartHandle, "Flash Erase Failed!\r\n", 21, &wrCount);
@@ -78,9 +84,26 @@ int main(void)
             UART_write(uartHandle, readBuffer, dataSize - 1, &wrCount); 
         }
     }
-
+*/
+    DL_GPIO_setPins(GPIO_RED_LED_PORT, GPIO_RED_LED_PIN);
+    DL_TimerG_startCounter(TIMER_0_INST);
+    
     while (1) {
+        //DL_GPIO_togglePins(GPIO_RED_LED_PORT, GPIO_RED_LED_PIN);
+        //delay_cycles(DELAY);
+        //DL_GPIO_togglePins(GPIO_RED_LED_PORT, GPIO_RED_LED_PIN);
         UART_read(uartHandle, gBuffer, CONFIG_UART_BUFFER_LENGTH, &rdCount);
         UART_write(uartHandle, gBuffer, CONFIG_UART_BUFFER_LENGTH, &wrCount);
     }
+}
+
+void TIMER_0_INST_IRQHandler(void)
+{
+    uint32_t status = DL_TimerG_getPendingInterrupt(TIMER_0_INST);
+    
+    if (status & DL_TIMERG_INTERRUPT_ZERO_EVENT) {
+        DL_TimerG_clearInterruptStatus(TIMER_0_INST, DL_TIMERG_INTERRUPT_ZERO_EVENT);
+        DL_GPIO_togglePins(GPIO_RED_LED_PORT, GPIO_RED_LED_PIN);
+    }
+    
 }
