@@ -1,0 +1,11 @@
+Debug/
+Release/
+*.out
+*.map
+*.o
+*.d
+*.obj
+*.a
+
+.clangd/
+.settings/
