@@ -1,4 +1,4 @@
-# HSM Integration Plan
+# HSM Integration Plan - Version: 1.0
 System and module integration plan.
 
 ## System

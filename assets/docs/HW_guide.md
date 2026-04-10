@@ -1,4 +1,4 @@
-# UART Echo Project Setup
+# UART Echo Project Setup - Version: 1.0
 (Jumper pins J17 and J18 on top two pins)
 Connect board to computer with USB cable
 In your OS’ Device Manager, look for COM port for “XDS110 Class Application/User UART”

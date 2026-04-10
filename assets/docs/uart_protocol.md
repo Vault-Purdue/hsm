@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol
+# HSM UART Communication Protocol - Version: 1.0
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.

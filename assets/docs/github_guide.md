@@ -1,4 +1,4 @@
-# Github Guide
+# Github Guide - Version: 1.0
 [Vault-Purdue Github](https://github.com/Vault-Purdue)
 ## Github Structure
 Our github uses 3 repos within Vault-Purdue

@@ -1,4 +1,4 @@
-# Requirements
+# Requirements - Version: 1.0
 HSM Requirements doc.
 
 # PC Module Requirements
