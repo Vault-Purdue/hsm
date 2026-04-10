@@ -41,8 +41,6 @@ New:
 | :---: | :---: | :---: | :---: | :---: | :---: |
 | 2 Bytes | 2 Bytes | 2 Bytes | 2 Bytes | 0 - 88 Bytes | 2 Bytes |
 
-Alex - If we decide the QR code: We are using a sequential block-storage approach
-
 The File Manager requires these shared fields from the router:
 
 - `Block ID` (prev. File ID): The Host will request blocks sequentially (e.g., Blocks 1 to 8 to reconstruct the QR code)
@@ -78,15 +76,15 @@ The File Manager requires these shared fields from the router:
 
 The CSC acts as the root of trust during the MCU boot sequence. It executes in high-privilege mode before the main application starts. 
 
-The CSC is  responsible for managing the hardware firewalls and the persistence of the Master Key. The CSC bypasses the Block Manager and interacts directly with the `NONMAIN` Flash sector.
+The CSC is  responsible for managing the hardware firewalls and the persistence of the Master Key. The CSC bypasses the F Manager and interacts directly with the `NONMAIN` Flash sector.
 
 ### CSC Boot Sequence Flow:
 
-1. Memory firewall initialization: The CSC starts in a privileged state with access to all Flash sectors.
-2. Master Key Persistence Check: The CSC checks a specific `NONMAIN` Flash sector to see if a Master Key already exists.
-   - First Boot: It triggers the TRNG to generate a 32-Byte key, writes it directly to the `NONMAIN` Flash sector, and loads it into the Keystore.
-   - Subsequent Boots: It reads the existing 32-Byte key directly from the `NONMAIN` Flash sector and loads it into the  Keystore.
-3. - Hardware Lockdown: The CSC configures the hardware memory protection units (firewalls) to permanently block all read/write access to the `NONMAIN` Master Key sector for the remainder of the power cycle.
-4. Handover (INITDONE): The CSC signals `INITDONE`, dropping privileges and handing over execution to the main application.
+1. CSC starts privileged with access to all Flash sectors
+2. checks dedicated MAIN Flash sector for existing Master Key
+   - first boot → TRNG generates 32-byte key, writes to Flash, loads into Keystore
+   - subsequent boots → reads existing key from Flash, loads into Keystore
+3. `SYSCTL.SECCFG.FWEPROTMAIN` locks write/erase access to the key sector
+4. INITDONE → Keystore writes disabled, hands off to main app
 
-Note: NONMAIN is a dedicated region of Flash memory physically separated from the MAIN Flash
+The threat: `FWEPROTMAIN` only blocks writes/erases, not reads. If debug access isn't locked in NONMAIN (a dedicated Flash section that handles policies like blocking JTAG), the key sector is readable via debugger. fix is locking debug access unconditionally in NONMAIN.
