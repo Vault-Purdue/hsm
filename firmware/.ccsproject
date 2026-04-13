@@ -9,10 +9,10 @@
 	<createSlaveProjects value=""/>
 	<ignoreDefaultDeviceSettings value="true"/>
 	<ignoreDefaultCCSSettings value="true"/>
-	<templateProperties value="id=uart_echo_LP_MSPM0L2228_nortos_ticlang.projectspec.uart_echo,buildProfile=release,isHybrid=true"/>
+	<templateProperties value="id=hsm_LP_MSPM0L2228_nortos_ticlang.projectspec.hsm,buildProfile=release,isHybrid=true"/>
 	<activeTargetConfiguration value="targetConfigs/MSPM0L2228.ccxml"/>
 	<isTargetConfigurationManual value="false"/>
 	<sourceLookupPath value="${COM_TI_MSPM0_SDK_INSTALL_DIR}/source/ti/driverlib"/>
-	<origin value="C:\ti\mspm0_sdk_2_10_00_04\examples\nortos\LP_MSPM0L2228\drivers\uart_echo\ticlang\uart_echo_LP_MSPM0L2228_nortos_ticlang.projectspec"/>
+	<origin value="C:\ti\mspm0_sdk_2_10_00_04\examples\nortos\LP_MSPM0L2228\drivers\hsm\ticlang\hsm_LP_MSPM0L2228_nortos_ticlang.projectspec"/>
 	<filesToOpen value="README.md"/>
 </projectOptions>

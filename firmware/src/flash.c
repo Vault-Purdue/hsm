@@ -5,7 +5,6 @@
  * @date 2026
  *
  * Wrapper functions for reading from/writing to flash memory. 
- * Dependencies on custom safety macros have been removed.
  */
 
 #include "flash.h"
