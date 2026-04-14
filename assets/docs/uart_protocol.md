@@ -17,7 +17,7 @@ One UART "frame" is composed of the following structure:
 
 | SoF | Message ID | Payload Length | Payload | Checksum |
 | --- | --- | --- | --- | --- |
-| 1 Byte | 1 Byte | 1 Byte | 0 - 255 Bytes | 2 Bytes |
+| 1 Byte | 1 Byte | 2 Byte | 0 - 1024 Bytes | 2 Bytes |
 
 ## Start of Frame Indicator (SoF)
 
@@ -37,7 +37,7 @@ This field identifies the type of message the frame is, and thus how the payload
 | Session Close | 0x0F | No | None | CLOSE | Host (Both?) |
 | Status Query | 0x10 | No | Requested status/filesystem information | STATUS | Host |
 | Status Response | 0x11 | No | Requested status/filesystem information | STATUS | HSM |
-| File Transfer Request | 0x20 | No | 1B direction (`0x00`: write, `0x01`: read) + 2B File ID | READ/WRITE | Host |
+| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 2B File ID | READ/WRITE | Host |
 | File Start | 0x21 | Yes | First block of file | READ/WRITE | Both |
 | File Block | 0x22 | Yes | Any block of file | READ/WRITE | Both |
 | File End | 0x23 | Yes | Final block of file | READ/WRITE | Both |
@@ -48,7 +48,7 @@ This field identifies the type of message the frame is, and thus how the payload
 
 ## Payload Length
 
-Length of the Payload, in bytes. Possible values are 0-255.
+Length of the Payload, in bytes. Possible values are 0-1024.
 
 ## Payload
 
