@@ -107,6 +107,9 @@ void SYS_initPower(void)
     DL_TimerG_enablePower(TIMER_0_INST);
     
     delay_cycles(POWER_STARTUP_DELAY);
+
+    DL_SYSCTL_setBORThreshold(DL_SYSCTL_BOR_THRESHOLD_LEVEL_0);
+    DL_SYSCTL_setSYSOSCFreq(DL_SYSCTL_SYSOSC_FREQ_BASE);
 }
 
 void GPIO_init(void)

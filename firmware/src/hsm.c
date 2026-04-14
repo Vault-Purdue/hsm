@@ -6,7 +6,6 @@
  */
 
 #include "ti_drivers_config.h"
-#include "ti_msp_dl_config.h"
 #include "flash.h"
 #include <string.h>
 #include <stdint.h>
@@ -19,7 +18,7 @@
 */
 void init() {
     // Initialize all of the hardware components
-    SYSCFG_DL_init();
+    SYS_initPower();
     // TODO: Initialize file manager
     // init_fm();
 }
