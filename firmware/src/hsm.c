@@ -13,6 +13,8 @@
 #include "uart_protocol.h"
 #include "uart_cmd_router.h"
 #include "led_status.h"
+#include "aes_adv_gcm_test.h"
+#include "aes_adv_gcm.h"
 
 /** @brief Initializes peripherals for system boot.
 */
@@ -32,7 +34,18 @@ int main(void) {
 
     // Initialize device peripherals
     init();
+    AESADV_init();
 
+    if (AESADV_GCM_selfTest()) {
+        STATUS_LED_ON(); 
+    } else {
+        while (1) {
+            STATUS_LED_ON();
+            delay_cycles(2000000);
+            STATUS_LED_OFF();
+            delay_cycles(2000000);
+        }
+    }
     while (1) {
         //print_debug("Ready\n");
         STATUS_LED_ON();
