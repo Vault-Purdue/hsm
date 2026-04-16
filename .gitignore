@@ -1,1 +1,3 @@
 .theia
+/firmware/ti_msp_dl_config.c
+/firmware/ti_msp_dl_config.h

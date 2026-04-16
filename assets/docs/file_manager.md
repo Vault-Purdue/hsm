@@ -10,15 +10,12 @@ The HSM will store 8 blocks distributed across 1 sector of Flash memory (1 KB). 
 * **Slot Structure:** 40 Bytes (Metadata & Crypto) + 88 Bytes (Payload)
 * **Sector 1:** 40 Bytes (Metadata & Crypto) + 88 Bytes (Payload)
 
-**Note on Chunk Index:** This field was removed as it is redundant for our sequential model. Its 2 bytes were merged into the `Reserved` field.
-
 ![FileManager](../images/file_manager_layout.png)
 
 ### Key Layout
 This 1KB sector is reserved exclusively for the Auth key persistence
 
 * **Slot Structure**: 8 available slots (128B each).
-* **Implementation**: The Security Block is statically assigned to Slot 0.
 
 Access Control: Restricted to the Auth Engine. Any Router UART request targeting this sector is rejected by the File Manager.
 
@@ -37,15 +34,15 @@ Previous:
 
 New:
 
-| SoF | Message ID | Block ID | Payload Length | Payload | Checksum |
-| :---: | :---: | :---: | :---: | :---: | :---: |
-| 2 Bytes | 2 Bytes | 2 Bytes | 2 Bytes | 0 - 88 Bytes | 2 Bytes |
+| SoF | Message ID | Payload Length | Payload | Checksum |
+| --- | --- | --- | --- | --- |
+| 1 Byte | 1 Byte | 2 Bytes | 0 - 88 Bytes | 2 Bytes |
 
 The File Manager requires these shared fields from the router:
 
-- `Block ID` (prev. File ID): The Host will request blocks sequentially (e.g., Blocks 1 to 8 to reconstruct the QR code)
+- `Message ID` (File Transfer Request): Obtain [write/read flag (1B) + File ID (2B)].  'w' (0x77) for write and 'r' (0x72) for read
 - `Payload Length`: Max 88 Bytes
-- `Payload`: QR code image or JSON credentials
+- `Payload`: data
 
 ---
 

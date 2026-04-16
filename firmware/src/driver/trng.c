@@ -9,6 +9,8 @@
 
 #include "trng.h"
 
+/************************ FUNCTIONS ***********************/
+
 /**
  * @brief Powers on and initializes the TRNG module
  * 
