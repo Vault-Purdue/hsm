@@ -33,6 +33,7 @@
 #define ti_drivers_config_h
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <ti/devices/msp/msp.h>
 #include <ti/driverlib/driverlib.h>
@@ -40,6 +41,7 @@
 #include <ti/driverlib/m0p/dl_core.h>
 #include <ti/drivers/UART.h>
 #include <ti/drivers/uart/UARTMSPM0.h>
+#include <ti/driverlib/dl_trng.h>
 
 /* clang-format off */
 #define POWER_STARTUP_DELAY                                                 (16)
@@ -60,6 +62,15 @@
 #define TIMER_0_INST_LOAD_VALUE                                         (19999U)
 #define TIMER_0_INST_PUB_0_CH                                                (1)
 
+/* Defines for TRNG */
+#define TRNG_CLOCK_DIVIDE                               (DL_TRNG_CLOCK_DIVIDE_2)
+#define TRNG_DECIMATION_RATE                         (DL_TRNG_DECIMATION_RATE_8)
+typedef enum {
+    HSM_TRNG_OK,
+    HSM_TRNG_ERR_DIG_TEST_FAIL,
+    HSM_TRNG_ERR_ANA_TEST_FAIL
+} HSM_TRNG_STATUS;
+
 extern const uint_least8_t CONFIG_UART_0;
 extern const uint_least8_t UART_count;
 
@@ -71,5 +82,14 @@ void SYS_initPower(void);
 void UART1_IRQHandler(void);
 void GPIO_init(void);
 void TIMER_0_init(void);
+
+/**
+ * @brief Initializes the TRNG module as described in the MSPM0 L-Series Technical Reference Manual
+ * 
+ * @retval 0: TRNG successfully initialized
+ * @retval 1: Digital start up tests failed, it is NOT SAFE to use the TRNG
+ * @retval 2: Analog start up tests failed, it is NOT SAFE to use the TRNG
+ */
+HSM_TRNG_STATUS TRNG_init(void);
 
 #endif /* ti_drivers_config_h */
