@@ -45,8 +45,8 @@
 #define POWER_STARTUP_DELAY                                                 (16)
 
 /* Defines for UART 0 */
-#define CONFIG_UART_COUNT 1
-#define CONFIG_UART_BUFFER_LENGTH 1
+#define CONFIG_UART_COUNT                                                    (1)
+#define CONFIG_UART_BUFFER_LENGTH                                          (128)
 
 /* Defines for GPIO */
 #define GPIO_RED_LED_PORT                                                (GPIOA)
@@ -68,7 +68,7 @@ uint8_t txBuffer[CONFIG_UART_BUFFER_LENGTH];
 
 /* clang-format on */
 void SYS_initPower(void);
-void UART1_IRQHandler(void);
+void UART0_IRQHandler(void);
 void GPIO_init(void);
 void TIMER_0_init(void);
 

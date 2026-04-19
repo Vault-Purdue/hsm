@@ -41,7 +41,7 @@ const uint_least8_t CONFIG_UART_0 = 0;
 const uint_least8_t UART_count    = CONFIG_UART_COUNT;
 
 static const UARTMSP_HWAttrs UARTMSPHWAttrs[CONFIG_UART_COUNT] = {
-    // UART1
+    // UART0
     {
         .regs          = UART0,
         .irq           = UART0_INT_IRQn,

@@ -35,6 +35,7 @@ int main(void) {
     // Initialize device peripherals
     init();
     AESADV_init();
+    uart_init();
 
     if (AESADV_GCM_selfTest()) {
         STATUS_LED_ON(); 
