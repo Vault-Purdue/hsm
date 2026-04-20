@@ -6,12 +6,25 @@
  *
  * Wrapper functions for the file manager.
  */
+#include <stdlib.h>
+#include <stdint.h>
 
-/* Needs to be 128-bit aligned */
- typedef struct {
-    // TODO: We need to fill this struct fields following the FM layout described in docs
+/* Blocks Layout, 128-bit aligned*/
+typedef struct __attribute__((aligned(16))) {
+      uint32_t status;       
+      uint8_t file_id[1];
+      uint8_t reserved_align;
+      uint16_t payload_size;
+      uint8_t iv[12];
+      uint8_t auth_tag[16];
+      uint32_t reserved;
+      uint8_t payload[88];  
  }fm_layout;
 
- typedef struct {
-    // TODO: We need to fill this struct fields following the FM layout described in docs
+/* Key Layout, 128-bit aligned */
+typedef struct __attribute__((aligned(16))) {
+      uint32_t key_id;
+      uint8_t key[32];
+      uint32_t reservedkey1;
+      uint8_t reservedkey2[40];
  }fm_key_layout;
