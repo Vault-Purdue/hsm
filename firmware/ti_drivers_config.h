@@ -49,6 +49,27 @@
 /* Defines for UART 0 */
 #define CONFIG_UART_COUNT 1
 #define CONFIG_UART_BUFFER_LENGTH 1
+typedef enum {
+    MSG_SESSION_OPEN               = 'A' ,  // 'A' - 0x41
+    MSG_KEY_EXCHANGE               = 0x01,
+    MSG_PIN_EXCHANGE               = 0x02,      
+    MSG_SESSION_CLOSE              = 0x0F,
+
+    MSG_STATUS_QUERY               = 0x10,
+    MSG_STATUS_RESPONSE            = 0x11,
+
+    MSG_FILE_TRANSFER_REQUEST      = 0x20,
+    MSG_FILE_START                 = 0x21,
+    MSG_FILE_BLOCK                 = 0x22,
+    MSG_FILE_END                   = 0x23,
+    MSG_FILE_TRANSFER_COMPLETE     = 0x24,
+
+    MSG_FILE_REQUEST_ACK           = 0xF0,
+    MSG_FILE_BLOCK_ACK             = 0xF1,
+    MSG_FILE_TRANSFER_COMPLETE_ACK = 0xF2,
+    MSG_OK                         = 0xF3,
+    MSG_ERR                        = 0xF4
+} uart_msg_id_t; // TODO: Change the names as needed 
 
 /* Defines for GPIO */
 #define GPIO_RED_LED_PORT                                                (GPIOA)
@@ -84,12 +105,12 @@ void GPIO_init(void);
 void TIMER_0_init(void);
 
 /**
- * @brief Initializes the TRNG module as described in the MSPM0 L-Series Technical Reference Manual
+ * @brief Initializes the TRNG module as described in the MSPM0 L-Series Technical Reference Manual.
  * 
- * @retval 0: TRNG successfully initialized
- * @retval 1: Digital start up tests failed, it is NOT SAFE to use the TRNG
- * @retval 2: Analog start up tests failed, it is NOT SAFE to use the TRNG
+ * @retval 0: TRNG successfully initialized.
+ * @retval 1: Digital start up tests failed, it is NOT SAFE to use the TRNG.
+ * @retval 2: Analog start up tests failed, it is NOT SAFE to use the TRNG.
  */
-HSM_TRNG_STATUS TRNG_init(void);
+HSM_TRNG_STATUS HSM_TRNG_init(void);
 
 #endif /* ti_drivers_config_h */

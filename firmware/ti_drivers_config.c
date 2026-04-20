@@ -160,7 +160,7 @@ void TIMER_0_init(void) {
     DL_TimerG_setPublisherChanID(TIMER_0_INST, DL_TIMERG_PUBLISHER_INDEX_0, TIMER_0_INST_PUB_0_CH);
 }
 
-HSM_TRNG_STATUS TRNG_init(void) {
+HSM_TRNG_STATUS HSM_TRNG_init(void) {
     // Set the TRNG functional clock
     // LP-MSPM0L2228 has a 32MHz system clock, we use the TRNG Clock Divider
     // to establish the frequency of the TRNG clock

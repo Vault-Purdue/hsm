@@ -245,6 +245,27 @@ int AESADV_AESGCM256_encrypt(
     return 0;
 }
 
+int AESADV_AESGCM256_encryptKey(
+    const uint8_t *pkey,
+    const uint8_t *ckey,
+    size_t keylen,
+    const uint8_t iv[12],
+    const uint8_t *aad, size_t aad_len,
+    uint8_t tag[16]
+) {
+    setup_gcm(DL_AESADV_DIR_ENCRYPT, iv, aad_len, keylen);
+
+    process_aad(aad, aad_len);
+    process_blocks(pkey, ckey, keylen);
+
+    DL_AESADV_haltOperationAndGenerateDigest(AESADV);
+    read_tag(tag);
+
+    clear_data();
+
+    return 0;
+}
+
 /**
  * @brief Perform AES-256-GCM authenticated decryption
  *
@@ -289,6 +310,41 @@ int AESADV_AESGCM256_decrypt(
     clear_data();
 
     return diff == 0 ? 0 : -1;
+}
+
+int AESADV_AESGCM256_decryptKey(
+    const uint8_t *ckey,
+    const uint8_t *pkey,
+    size_t keylen,
+    const uint8_t iv[12],
+    const uint8_t *aad, size_t aad_len,
+    uint8_t tag[16]
+) {
+    uint8_t temp[keylen];
+    setup_gcm(DL_AESADV_DIR_DECRYPT, iv, aad_len, len);
+
+    process_aad(aad, aad_len);
+    process_blocks(ckey, temp, keylen);
+
+    DL_AESADV_haltOperationAndGenerateDigest(AESADV);
+
+    uint8_t calc_tag[16];
+    read_tag(calc_tag);
+
+    // constant-time compare
+    uint32_t diff = 0;
+    for (int i = 0; i < 16; i++)
+        diff |= calc_tag[i] ^ tag[i];
+
+    clear_data();
+
+    if (diff == 0) {
+        memcpy(pkey, temp, keylen);
+        memset(temp, 0, keylen);
+        return 0;
+    }
+
+    return -1;
 }
 
 /**

@@ -47,6 +47,28 @@ int AESADV_AESGCM256_encrypt(
     uint8_t tag[16]);
 
 /**
+ * @brief Perform AES-256-GCM authenticated encryption for file keys. Perform after KEYSTORE transfer.
+ *
+ * @param pkey        Pointer to 32-byte AES-256-GCM plaintext key
+ * @param ckey        Pointer to 32-byte AES-256-GCM ciphertext buffer
+ * @param keylen      Length of key in bytes.
+ * @param iv          Pointer to 12-byte IV
+ * @param aad         Pointer to additional authenticated data
+ * @param aad_len     Length of AAD in bytes
+ * @param tag         Output buffer for 16-byte authentication tag
+ *
+ * @return 0 on success
+ */
+int AESADV_AESGCM256_encryptKey(
+    const uint8_t *pkey,
+    const uint8_t *ckey,
+    size_t keylen,
+    const uint8_t iv[12],
+    const uint8_t *aad, size_t aad_len,
+    uint8_t tag[16]
+);
+
+/**
  * @brief Perform AES-256-GCM authenticated decryption
  *
  * @param key         Pointer to 32-byte AES-256 key
@@ -70,6 +92,29 @@ int AESADV_AESGCM256_decrypt(
     const uint8_t *ciphertext, size_t len,
     const uint8_t tag[16],
     uint8_t *plaintext);
+
+/**
+ * @brief Perform AES-256-GCM authenticated decryption for file keys. Perform after KEYSTORE transfer.
+ *
+ * @param ckey        Pointer to 32-byte AES-256-GCM ciphertext key
+ * @param pkey        Pointer to 32-byte AES-256-GCM plaintext buffer
+ * @param keylen      Length of key in bytes.
+ * @param iv          Pointer to 12-byte IV
+ * @param aad         Pointer to additional authenticated data
+ * @param aad_len     Length of AAD in bytes
+ * @param tag         Output buffer for 16-byte authentication tag
+ *
+ * @retval 0: Key successfully decrypted.
+ * @retval -1: Key could not be verified.
+ */
+int AESADV_AESGCM256_decryptKey(
+    const uint8_t *ckey,
+    const uint8_t *pkey,
+    size_t keylen,
+    const uint8_t iv[12],
+    const uint8_t *aad, size_t aad_len,
+    uint8_t tag[16]
+);
 
 #endif /* HAVE_AESADV_AESGCM */
 

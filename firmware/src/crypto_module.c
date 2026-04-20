@@ -1,153 +1,239 @@
 /**
  * @file crypto_module.c
  * @author Vault Team - Purdue
- * @brief Crypto module - AES-128-GCM encrypt/decrypt
+ * @brief HSM Crypto Module
  * @date 2026
  *
- * Calls into the AESADV and TRNG drivers.
- *
- * TODO: when the AESADV/TRNG headers are done, add includes below
- * and rename the following placeholder functions:
- *   aesadv_gcm_encrypt, aesadv_gcm_decrypt, trng_get_bytes
+ * Handles the encryption of file entries amd file keys. Handles the
+ * decryption of file entries, file keys, and client commands.
+ * Generates keys, IVs, and auth tags for AES-256-GCM encryption.
  */
 
 #include "crypto_module.h"
 
-// TODO: add real driver headers when they are complete */
-// #include "aesadv.h"
-// #include "trng.h"
-
-/* ========================================================================= */
-/* Placeholder driver prototypes - delete these once the real headers
- * are included above. Just here so the file compiles standalone. */
-extern int aesadv_gcm_encrypt(
-    const uint8_t *key, uint32_t key_len,
-    const uint8_t *iv, uint32_t iv_len,
-    const uint8_t *aad, uint32_t aad_len, // Additional Authenticated Data
-                                          // Validated Data but not encrypted
-    const uint8_t *pt, uint32_t pt_len,
-    uint8_t *ct,
-    uint8_t *tag, uint32_t tag_len);
-
-extern int aesadv_gcm_decrypt(
-    const uint8_t *key, uint32_t key_len,
-    const uint8_t *iv, uint32_t iv_len,
-    const uint8_t *aad, uint32_t aad_len, // Additional Authenticated Data
-                                          // Validated Data but not encrypted
-    const uint8_t *ct, uint32_t ct_len,
-    const uint8_t *tag, uint32_t tag_len,
-    uint8_t *pt);
-
-extern int trng_get_bytes(uint8_t *out, uint32_t len);
-
-/* ========================================================================= */
-
-// Wipe the plaintext buffer if decrypt fails (aka if someone was tampering)
-// so the file manager doesn't end up with some garbage bits 
-static void wipe(void *p, uint32_t n)
-{
-    volatile uint8_t *v = (volatile uint8_t *)p;
-    while (n--) {
-        *v++ = 0;
-    }
-}
-
-// This is an empty function for now since TRNG and AESADV will do 
-// their own inits. But we can call them here if the team chooses 
-crypto_status crypto_init(void)
-{
-    return CRYPTO_OK;
-}
-
-// Fills a buffer with the random bytes from the TRNG 
-crypto_status crypto_random(uint8_t *out, uint32_t len)
-{
-    if (out == NULL) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
-    if (len == 0) {
-        return CRYPTO_OK;
-    }
-
-    if (trng_get_bytes(out, len) != 0) {
-        return CRYPTO_ERR_TRNG_FAIL;
-    }
-    return CRYPTO_OK;
-}
-
-// This generates a new 12 byte Initialization Vector for the AES-GCM
-crypto_status crypto_generate_iv(uint8_t iv[CRYPTO_GCM_IV_SIZE])
-{
-    return crypto_random(iv, CRYPTO_GCM_IV_SIZE);
-}
-
-crypto_status crypto_gcm_encrypt(
-    const uint8_t key[CRYPTO_AES_KEY_SIZE],
-    const uint8_t iv[CRYPTO_GCM_IV_SIZE],
-    const uint8_t *aad, uint32_t aad_len,
-    const uint8_t *pt, uint32_t pt_len,
-    uint8_t *ct,
-    uint8_t tag[CRYPTO_GCM_TAG_SIZE])
-{
-    if (key == NULL || iv == NULL || tag == NULL) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
-    if (pt_len > 0 && (pt == NULL || ct == NULL)) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
-    if (aad_len > 0 && aad == NULL) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
-
-    int rc = aesadv_gcm_encrypt(
-        key, CRYPTO_AES_KEY_SIZE,
-        iv, CRYPTO_GCM_IV_SIZE,
-        aad, aad_len,
-        pt, pt_len,
-        ct,
-        tag, CRYPTO_GCM_TAG_SIZE);
-
-    if (rc != 0) {
-        return CRYPTO_ERR_HW_FAIL;
-    }
-    return CRYPTO_OK;
-}
-
-crypto_status crypto_gcm_decrypt(
-    const uint8_t key[CRYPTO_AES_KEY_SIZE],
-    const uint8_t iv[CRYPTO_GCM_IV_SIZE],
-    const uint8_t *aad, uint32_t aad_len,
-    const uint8_t *ct, uint32_t ct_len,
-    const uint8_t tag[CRYPTO_GCM_TAG_SIZE],
-    uint8_t *pt)
-{
-    if (key == NULL || iv == NULL || tag == NULL) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
-    if (ct_len > 0 && (ct == NULL || pt == NULL)) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
-    if (aad_len > 0 && aad == NULL) {
-        return CRYPTO_ERR_NULL_PARAM;
-    }
+HSM_CRYPTO_STATUS HSM_CRYPTO_init(void) {
     
-    int rc = aesadv_gcm_decrypt(
-        key, CRYPTO_AES_KEY_SIZE,
-        iv, CRYPTO_GCM_IV_SIZE,
-        aad, aad_len,
-        ct, ct_len,
-        tag, CRYPTO_GCM_TAG_SIZE,
-        pt);
+    // Initialize the TRNG driver
+    if (HSM_TRNG_init() != HSM_TRNG_OK) return HSM_CRYPTO_ERR_TRNG_FAIL;
 
-    if (rc != 0) {
-        // Could be a tag mismatch or a hardware error. Either way,
-        // wipe the plaintext buffer so the caller can't accidentally
-        // trust unauthenticated data.
-        if (pt != NULL && ct_len > 0) {
-            wipe(pt, ct_len);
-        }
-        return CRYPTO_ERR_AUTH_FAIL;
-    }
-    return CRYPTO_OK;
+    // Initialize the AESADV driver
+    AESADV_init();
+
+    return HSM_CRYPTO_OK;
 }
-/* ========================================================================= */
+
+/**
+ * @brief Generates a 12-byte IV for AES-256-GCM encryption.
+ * 
+ * @param buf Pointer to the IV buffer in memory.
+ * @param len Size of the IV buffer in bytes.
+ * 
+ * @retval 0: IV was successfully generated.
+ * @retval 2: Invalid length for IV was given.
+ */
+static HSM_CRYPTO_STATUS HSM_CRYPTO_generateIV(uint8_t *buf, size_t len) {
+
+    // Size check
+    if (len != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Get random number from TRNG
+    HSM_TRNG_generateNumber((uint32_t *) buf, CRYPTO_GCM_IV_SIZE / sizeof(uint32_t));
+
+    return HSM_CRYPTO_OK;
+}
+
+/**
+ * @brief Generates a 256-bit key for AES-256-GCM encryption.
+ *
+ * @param buf Pointer to the key buffer in memory.
+ * @param len Size of the key buffer in bytes.
+ * 
+ * @retval 0: Key was successfully generated.
+ * @retval 2: Invalid length for key was given.
+ */
+static HSM_CRYPTO_STATUS HSM_CRYPTO_generateKey(uint8_t *buf, size_t len) {
+
+    // Size check
+    if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Get random number from TRNG
+    HSM_TRNG_generate256BitNumber((uint32_t *) buf, CRYPTO_AES_KEY_SIZE / sizeof(uint32_t));
+
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
+    uint8_t *key,
+    size_t keylen,
+    uint8_t *iv,
+    size_t ivlen,
+    uint8_t *at,
+    size_t atlen,
+    uint8_t *pt,
+    uint8_t *ct,
+    size_t ptlen
+) {
+    
+    // Size checks
+    if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ptlen > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Initialize dummy AAD
+    // TODO: add AAD?
+    uint8_t *aad = NULL;
+    size_t aadlen = 0;
+
+    // Clear output buffers just in case
+    memset(key, 0, keylen);
+    memset(iv, 0, ivlen);
+    memset(at, 0, atlen);
+    memset(ct, 0, ptlen);
+
+    // Generate key, IV
+    (void) HSM_CRYPTO_generateKey(key, keylen);
+    (void) HSM_CRYPTO_generateIV(iv, ivlen);
+
+    // Encrypt the file
+    (void) AESADV_AESGCM256_encrypt(
+        key,
+        iv,
+        aad,
+        aadlen,
+        pt,
+        ptlen,
+        ct,
+        at
+    );
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFileKey(
+    uint8_t *pkey,
+    uint8_t *ckey,
+    size_t keylen,
+    uint8_t *iv,
+    size_t ivlen,
+    uint8_t *at,
+    size_t atlen
+) {
+    
+    // Size checks
+    if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Initialize dummy AAD
+    // TODO: add AAD?
+    uint8_t *aad = NULL;
+    size_t aadlen = 0;
+
+    // Clear output buffers just in case
+    memset(ckey, 0, keylen);
+    memset(iv, 0, ivlen);
+    memset(at, 0, atlen);
+
+    // Transfer key from KEYSTORE to AESADV
+    if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
+    
+    // Generate IV
+    (void) HSM_CRYPTO_generateIV(iv, ivlen);
+
+    // Encrypt the key
+    (void) AESADV_AESGCM256_encryptKey(
+        pkey,
+        ckey,
+        keylen,
+        iv,
+        aad,
+        aad_len,
+        at
+    );
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFile(
+    uint8_t *key,
+    size_t keylen,
+    uint8_t *iv,
+    size_t ivlen,
+    uint8_t *at,
+    size_t atlen,
+    uint8_t *ct,
+    uint8_t *pt,
+    size_t ctlen
+) {
+    
+    // Size checks
+    if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ctlen > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Initialize dummy AAD
+    // TODO: add AAD?
+    uint8_t *aad = NULL;
+    size_t aadlen = 0;
+
+    // Clear output buffers just in case
+    memset(pt, 0, ctlen);
+
+    // Decrypt the file
+    int result = AESADV_AESGCM256_decrypt(
+        key,
+        iv,
+        aad,
+        aadlen,
+        ct,
+        ctlen,
+        at,
+        pt
+    );
+    if (result != 0) return HSM_CRYPTO_ERR_AUTH_FAIL;
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFileKey(
+    uint8_t *ckey,
+    uint8_t *pkey,
+    size_t keylen,
+    uint8_t *iv,
+    size_t ivlen,
+    uint8_t *at,
+    size_t atlen
+) {
+    
+    // Size checks
+    if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Initialize dummy AAD
+    // TODO: add AAD?
+    uint8_t *aad = NULL;
+    size_t aadlen = 0;
+
+    // Clear output buffers just in case
+    memset(pkey, 0, keylen);
+
+    // Transfer key from KEYSTORE to AESADV
+    if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
+
+    // Encrypt the key
+    int result = AESADV_AESGCM256_decryptKey(
+        pkey,
+        ckey,
+        keylen,
+        iv,
+        aad,
+        aad_len,
+        at
+    );
+    if (result != 0) return HSM_CRYPTO_ERR_AUTH_FAIL;
+    
+    return HSM_CRYPTO_OK;
+}
