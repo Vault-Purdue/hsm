@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "uart_protocol.h"
+#include "uart_cmd_router.h" // For message ID types
 
 /************************ VARIABLES ***********************/
 size_t rdCount;
@@ -37,7 +38,7 @@ uint8_t gBuffer[CONFIG_UART_BUFFER_LENGTH] = {0};
 
 /************************ FUNCTIONS ***********************/
 
-/** TODO: Update function's description
+/**
  * @brief Initializes the UART module
  * 
  * This function powers on the UART module and
@@ -62,8 +63,14 @@ void uart_init(void) {
     }
 }
 
+/**
+ * @brief UART Helper function for processing received bytes.
+ * 
+ * Uses a state machine to track where in the UART frame we're
+ * at. Receives one byte at a time for simplicity/safety.
+ */
 int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
-    printf("Byte received: %02X\n", byte);
+    //printf("Byte received: %02X\n", byte);
     switch(parserState) {
         case WAIT_START:
             if (byte == START_BYTE) {
@@ -80,6 +87,7 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
             break;
         case READ_LENGTH_H:
             rx_frame->payload_len = byte << 8;
+            parserState = READ_LENGTH_L;
             break;
         case READ_LENGTH_L:
             rx_frame->payload_len += byte;
@@ -105,71 +113,122 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
             rx_frame->checksum += byte;
             
             // Full frame received!
-            // TODO: Confirm checksum
-            /*
-            if (rx_frame->checksum) {
+            // TODO: Actually calculate checksum for confirmation
+            uint16_t calculated_checksum = rx_frame->checksum;
+            if (rx_frame->checksum != calculated_checksum) {
                 parserState = WAIT_START;
-                return UART_RECV_ERROR_BAD_CHECKSUM
+                return UART_RECV_ERROR_BAD_CHECKSUM;
             }
-            */
+            parserState = WAIT_START;
             return UART_RECV_FULL_FRAME_RECEIVED;
     }
     return UART_RECV_NO_ERROR;
 }
 
+/**
+ * @brief Receives a UART frame.
+ * 
+ * Blocks until a whole frame is received successfully, or
+ * until an error occurrs (such as incorrect formatting of
+ * frame).
+ */
 int uart_receive_frame(uart_frame_t *rx_frame) {
     // Read from UART stream one byte at a time. Assemble message as bytes come.
-    UART_read(uartHandle, gBuffer, CONFIG_UART_BUFFER_LENGTH, &rdCount);
-    int returnValue = UART_RECV_NO_ERROR;
-    for (uint32_t i = 0; i < rdCount; i++) {
-        printf("%02X ", gBuffer[i]);  // debug
-        int processByteResult = Uart_Process_Byte(gBuffer[i], rx_frame);
-        if (processByteResult != UART_RECV_NO_ERROR) {
-            returnValue = processByteResult;
-        }
-        if (processByteResult == UART_RECV_FULL_FRAME_RECEIVED) {
-            // Return frame!
-            // Todo: mark remainder of gBuffer to be prepended next time.
-            return UART_RECV_FULL_FRAME_RECEIVED;
+    int returnValue;
+    while (1) {
+        UART_read(uartHandle, gBuffer, CONFIG_UART_BUFFER_LENGTH, &rdCount);
+        for (uint32_t i = 0; i < rdCount; i++) {
+            returnValue = Uart_Process_Byte(gBuffer[i], rx_frame);
+            if (returnValue != UART_RECV_NO_ERROR) {
+                // Either we received the whole frame, or we got an error.
+                // Todo: mark remainder of gBuffer to be prepended next time. (unneccessary, because we're only reading 1 byte at a time?)                
+                return returnValue;
+            }
         }
     }
-    return returnValue;
 }
 
-int uart_send_frame(uint8_t msg_id, uint8_t *writeBuffer, uint16_t write_length) {
-    if (write_length > UART_MAX_PAYLOAD_LEN) {
+/**
+ * @brief Send a UART frame with a given message ID and payload.
+ * 
+ * Assembles a UART frame for the given payload and sends it.
+ */
+int uart_send_frame(uint8_t msg_id, uint8_t *payload, uint16_t payload_len) {
+    if (payload_len > UART_MAX_PAYLOAD_LEN) {
         return UART_SEND_ERROR_MSG_TOO_LONG;
     }
 
-    // Prepare write frame
-    uart_frame_t write_frame;
-    write_frame.sof = START_BYTE;
+    uint8_t header[4];
+    header[0] = START_BYTE;
     // TODO: add checking to confirm msg_id is valid
-    write_frame.msg_id = msg_id;
-    // Need to manually enforce big-endianness
-    write_frame.payload_len = write_frame.payload_len = (write_length >> 8) | (write_length << 8);
-    //TODO: passing a 1KB buffer may cause memory issues?
-    memcpy(write_frame.payload, writeBuffer, write_length);
+    header[1] = msg_id;
+    // Swapping payload length bits for proper endianness
+    header[2] = (uint8_t)((payload_len >> 8) & 0xFF);
+    header[3] = (uint8_t)(payload_len & 0xFF);
+
     // TODO: generate checksum
-    int checksum = 0xABCD;
-    write_frame.checksum = (checksum >> 8) | (checksum << 8);
+    uint16_t checksum = 0xFFFF;
+    uint8_t swapped_checksum[2];
+    // Swapping checksum length bits for proper endianness
+    swapped_checksum[0] = (uint8_t)(checksum >> 8) & 0xFF;
+    swapped_checksum[1] = (uint8_t)(checksum & 0xFF);
 
     // Send write frame
-    uint16_t totalSize = 6 + write_frame.payload_len; // SOF + ID + Len + Payload + Checksum
-    UART_write(uartHandle, (uint8_t *)&write_frame, totalSize, &wrCount);
+    UART_write(uartHandle, header, 4, &wrCount);
+    UART_write(uartHandle, payload, payload_len, &wrCount);
+    UART_write(uartHandle, swapped_checksum, 2, &wrCount);
+
+    return UART_SEND_NO_ERROR;
 }
 
-void uart_send_debug_msg(uint8_t *message, uint16_t write_length) {
-    UART_write(uartHandle, message, write_length, &wrCount);
-}
+/**
+ * @brief Send debug message over UART, with a string message and an int error code.
+ * 
+ * The other uart_send_debug_msg() function only takes a str as input. I added this function
+ * for cases where you want to add an error code or other integer to be inserted into
+ * your debug message.
+ */
+void uart_send_debug_msg_with_error_code(const char *message, int errorCode) {
+    //TODO: Currently only accepts debug messages under 64 characters
+    char final_string[64];
 
-void uart_debug_echo_mode() {
-    while(1) {
-        UART_read(uartHandle, gBuffer, CONFIG_UART_BUFFER_LENGTH, &rdCount);
-        for (uint32_t i = 0; i < rdCount; i++) {
-            gBuffer[i] = gBuffer[i]+1;
+    // Calculate length of message
+    // Format of string: "Your Message [errorCode]"
+    int formatted_len = snprintf(final_string, sizeof(final_string), "%s [%d]", message, errorCode);
+    if (formatted_len > 0) {
+        uint16_t send_len = (uint16_t)formatted_len;
+        
+        // Cap at protocol's max payload size
+        if (send_len > UART_MAX_PAYLOAD_LEN) {
+            send_len = UART_MAX_PAYLOAD_LEN;
         }
-        //UART_write(uartHandle, uartWriteBuffer, uartWriteLength, &wrCount);
-        uart_send_debug_msg(gBuffer, rdCount);
+
+        // MSG ID 0xFF for Debug Message
+        uart_send_frame(MSG_DEBUG, (uint8_t *)final_string, send_len);
+    }
+}
+
+/**
+ * @brief Send debug message over UART, with a string message.
+ * 
+ * If you also want to send an integer error code, use 
+ * uart_send_debug_msg_with_error_code().
+ */
+void uart_send_debug_msg(const char *message) {
+    //TODO: Currently only accepts debug messages under 64 characters
+    char final_string[64];
+
+    // Calculate length of message
+    int formatted_len = snprintf(final_string, sizeof(final_string), "%s", message);
+    if (formatted_len > 0) {
+        uint16_t send_len = (uint16_t)formatted_len;
+        
+        // Cap at protocol's max payload size
+        if (send_len > UART_MAX_PAYLOAD_LEN) {
+            send_len = UART_MAX_PAYLOAD_LEN;
+        }
+
+        // MSG ID 0xFF for Debug Message
+        uart_send_frame(MSG_DEBUG, (uint8_t *)final_string, send_len);
     }
 }

@@ -28,15 +28,12 @@ typedef struct {
     uint16_t checksum;
 } __attribute__((packed)) uart_frame_t;
 
-// TODO: Add description to this function
 void uart_init(void);
 
-// TODO: Add description to this function
 int uart_receive_frame(uart_frame_t *rx_frame);
 
-// TODO: Add description to this function
 int uart_send_frame(uint8_t msg_id, uint8_t *writeBuffer, uint16_t write_length);
 
-void uart_send_debug_msg(uint8_t *message, uint16_t write_length);
+void uart_send_debug_msg_with_error_code(const char *message, int errorCode);
 
-void uart_debug_echo_mode();
+void uart_send_debug_msg(const char *message);

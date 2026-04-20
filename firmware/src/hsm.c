@@ -26,10 +26,8 @@ void init() {
 }
 
 /************************MAIN LOOP ************************/
-
 int main(void) {
     uart_frame_t rx_frame;
-    int result = 0;
     //uart_msg_id_t cmd;
 
     // Initialize device peripherals
@@ -50,48 +48,35 @@ int main(void) {
     while (1) {
         //print_debug("Ready\n");
         STATUS_LED_ON();
-
-        /*
-        uint8_t *debug_write = (uint8_t *)"Test message 1";
-        int debug_write_size = 14;
-        uart_send_debug_msg(debug_write, debug_write_size);
-        */
-
+        
         // Block until a full frame is received
+        int result = 0;
         while (result == UART_RECV_NO_ERROR) {
             result = uart_receive_frame(&rx_frame);
-            //uart_send_debug_msg((uint8_t *)"ABCDEFGHIJ", 10);
-            uart_send_frame(0, (uint8_t *)"Test Message", 12);
         }
-
-        uart_send_frame(0, (uint8_t *)"Another.", 8);
-
-        /*
-        STATUS_LED_OFF();
-        debug_write = (uint8_t *)"Test message 2";
-        uart_send_debug_msg(debug_write, debug_write_size);
-        */
         
         if (result != UART_RECV_FULL_FRAME_RECEIVED) {
             STATUS_LED_OFF();
-            switch (result) { // TODO: The ERROR MSGS are currently missing
-            case UART_RECV_ERROR_BAD_SOF://MSG_BAD_SOF:
-                //print_debug("Bad SoF\n");
+            switch (result) {
+            case UART_RECV_ERROR_BAD_SOF:
+                uart_send_debug_msg("ERROR: Msg Bad SOF");
                 break;
-            case UART_RECV_ERROR_PAYLOAD_TOO_LONG: //MSG_BAD_LEN:
-                //print_debug("Bad payload length\n");
+            case UART_RECV_ERROR_PAYLOAD_TOO_LONG:
+                uart_send_debug_msg("ERROR: Msg Bad Len");
                 break;
-            case UART_RECV_ERROR_BAD_CHECKSUM: //MSG_BAD_CRC:
-                //print_debug("CRC mismatch\n");
+            case UART_RECV_ERROR_BAD_CHECKSUM:
+                uart_send_debug_msg("ERROR: Msg Bad Checksum");
                 break;
             default:
-                //print_debug("Failed to receive frame\n");
+                uart_send_debug_msg_with_error_code("ERROR: Failed to receive frame", result);
                 break;
             }
             continue;
         }
 
         STATUS_LED_OFF();
+
+        uart_send_debug_msg("Frame successfully received.");
 
         /* Route by Message ID */
         switch (rx_frame.msg_id) {
@@ -125,11 +110,5 @@ int main(void) {
             //print_debug("Unknown Message ID\n");
             break;
         }
-
-        //For testing: echo back the same message, with payload incremented
-        for (int i = 0; i < rx_frame.payload_len; i++) {
-            rx_frame.payload[i]++;
-        }
-        uart_send_frame(0, rx_frame.payload, rx_frame.payload_len);
     }
 }
