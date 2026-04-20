@@ -44,6 +44,7 @@ This field identifies the type of message the frame is, and thus how the payload
 | File Request ACK | 0xF0 | No | Whether file transfer can be performed or not (ie fail if requested file does not exist) | READ/WRITE | Both |
 | File Block ACK | 0xF1 | No | None | READ/WRITE | Both |
 | File Transfer Complete ACK | 0xF2 | No | Whether checksum verification succeeded or not | READ/WRITE | Both |
+| Debug Message | 0xFF | No | Debug message | None | HSM |
 
 ## Payload Length
 
