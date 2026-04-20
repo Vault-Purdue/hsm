@@ -62,6 +62,41 @@ static HSM_CRYPTO_STATUS HSM_CRYPTO_generateKey(uint8_t *buf, size_t len) {
     return HSM_CRYPTO_OK;
 }
 
+HSM_CRYPTO_STATUS HSM_CRYPTO_generatePrivateSessionKey(uint8_t *buf, size_t len) {
+    
+    // We can just use the same logic used in generateKey for this
+    if (HSM_CRYPTO_generateKey(buf, len) != HSM_CRYPTO_OK) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Perform the necessary clamping procedure
+    buf[0] &= 248;
+    buf[31] &= 127;
+    buf[31] |= 64;
+
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_generatePublicSessionKey(uint8_t *key, uint8_t *pub, size_t len) {
+    
+    // Size check
+    if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    
+    // Generate public key using basepoint = 9
+    cf_curve25519_mul_base(pub, key);
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedKey(uint8_t *key, uint8_t *pub, uint8_t *shared, size_t len) {
+
+    // Size check
+    if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    
+    // Generate shared key using basepoint = client's pub
+    cf_curve25519_mul(shared, key, pub);
+    
+    return HSM_CRYPTO_OK;
+}
+
 HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
     uint8_t *key,
     size_t keylen,
