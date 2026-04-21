@@ -16,6 +16,9 @@
 #include "driver/keystore.h"
 #include "driver/trng.h"
 #include "lib/curve25519.h"
+#include "wolfssl/wolfcrypt/curve25519.h"
+#include "wolfssl/wolfcrypt/hmac.h"
+#include "wolfssl/wolfcrypt/sha256.h"
 #include "ti_drivers_config.h"
 
 /* ============================================================== */
@@ -89,10 +92,10 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedKey(uint8_t *key, uint8_t *pub, uint8
 
 // TODO: still needs to be implemented
 /**
- * @brief Encrypts the HSM response sent over UART using the shared key.
+ * @brief Encrypts the HSM response payload sent over UART using the shared key.
  *
- * @param sframe The buffer of the unencrypted UART response frame.
- * @param cframe The buffer to store the encrypted UART response frame.
+ * @param sframe The buffer of the unencrypted UART response frame payload.
+ * @param cframe The buffer to store the encrypted UART response frame payload.
  * @param len Size of the UART frame in bytes.
  * @param key The buffer of the shared key.
  * @param keylen Size of the key in bytes.
@@ -100,14 +103,14 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedKey(uint8_t *key, uint8_t *pub, uint8
  * @retval 0: Key was successfully generated.
  * @retval 2: Invalid length for key was given.
  */
-HSM_CRYPTO_STATUS HSM_CRYPTO_encryptCommand(uint8_t *sframe, uint8_t *cframe, size_t len, uint8_t *key, size_t keylen);
+HSM_CRYPTO_STATUS HSM_CRYPTO_encryptCommandPayload(uint8_t *sframe, uint8_t *cframe, size_t len, uint8_t *key, size_t keylen);
 
 // TODO: still needs to be implemented
 /**
- * @brief Decrypts the client request sent over UART using the shared key.
+ * @brief Decrypts the client request payload sent over UART using the shared key.
  *
- * @param cframe The buffer of the encrypted UART request frame.
- * @param sframe The buffer to store the unencrypted UART request frame.
+ * @param cframe The buffer of the encrypted UART request frame payload.
+ * @param sframe The buffer to store the unencrypted UART request frame payload.
  * @param len Size of the UART frame in bytes.
  * @param key The buffer of the shared key.
  * @param keylen Size of the key in bytes.
@@ -115,7 +118,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptCommand(uint8_t *sframe, uint8_t *cframe, si
  * @retval 0: Key was successfully generated.
  * @retval 2: Invalid length for key was given.
  */
-HSM_CRYPTO_STATUS HSM_CRYPTO_decryptCommand(uint8_t *cframe, uint8_t *sframe, size_t len, uint8_t *key, size_t keylen);
+HSM_CRYPTO_STATUS HSM_CRYPTO_decryptCommandPayload(uint8_t *cframe, uint8_t *sframe, size_t len, uint8_t *key, size_t keylen);
 
 /**
  * @brief Encrypts a file payload while generating a key, IV, and auth tag.

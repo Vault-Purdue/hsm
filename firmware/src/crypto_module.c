@@ -88,6 +88,9 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generatePublicSessionKey(uint8_t *key, uint8_t *pub
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedKey(uint8_t *key, uint8_t *pub, uint8_t *shared, size_t len) {
 
+    // Null check
+    if (!key || !pub || !shared) return HSM_CRYPTO_ERR_NULL_PARAM;
+
     // Size check
     if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     
@@ -96,6 +99,26 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedKey(uint8_t *key, uint8_t *pub, uint8
     
     return HSM_CRYPTO_OK;
 }
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_encryptCommandPayload(
+    uint8_t *sframe,
+    uint8_t *cframe,
+    size_t len,
+    uint8_t *key,
+    size_t keylen
+) {
+
+    // Null check
+    if (!sframe || !cframe || !key) return HSM_CRYPTO_ERR_NULL_PARAM;
+    
+    // Size check
+    if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Clear buffer for client just in case
+    memset(cframe, 0, len);
+    
+} 
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
     uint8_t *key,
