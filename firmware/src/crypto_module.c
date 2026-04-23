@@ -4,12 +4,14 @@
  * @brief HSM Crypto Module
  * @date 2026
  *
- * Handles the encryption of file entries amd file keys. Handles the
- * decryption of file entries, file keys, and client commands.
+ * Handles the encryption / decryption of file entries, file keys, and message payloads.
  * Generates keys, IVs, and auth tags for AES-256-GCM encryption.
  */
 
 #include "crypto_module.h"
+
+static curve25519_key priv25519;
+static curve25519_key client25519;
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_init(void) {
     
@@ -18,6 +20,10 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_init(void) {
 
     // Initialize the AESADV driver
     AESADV_init();
+
+    // Initialize the X25519 key structs for ECDH
+    if (wc_curve25519_init(&priv25519) != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    if (wc_curve25519_init(&client25519) != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
 
     return HSM_CRYPTO_OK;
 }
@@ -63,6 +69,12 @@ static HSM_CRYPTO_STATUS HSM_CRYPTO_generateKey(uint8_t *buf, size_t len) {
 }
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_generatePrivateSessionKey(uint8_t *buf, size_t len) {
+
+    // Null check
+    if (!buf) return HSM_CRYPTO_ERR_NULL_PARAM;
+
+    // Size check
+    if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     
     // We can just use the same logic used in generateKey for this
     if (HSM_CRYPTO_generateKey(buf, len) != HSM_CRYPTO_OK) return HSM_CRYPTO_ERR_BAD_LENGTH;
@@ -72,53 +84,165 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generatePrivateSessionKey(uint8_t *buf, size_t len)
     buf[31] &= 127;
     buf[31] |= 64;
 
+    // Import private key into X25519 key struct
+    if (
+        wc_curve25519_import_private_ex(
+            (byte *) buf,
+            (word32)(len / sizeof(byte)),
+            &priv25519,
+            EC25519_LITTLE_ENDIAN
+        ) != 0
+    ) return HSM_CRYPTO_ERR_SESSION_FAIL;
+
     return HSM_CRYPTO_OK;
 }
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_generatePublicSessionKey(uint8_t *key, uint8_t *pub, size_t len) {
     
+    // Null check
+    if (!key || !pub) return HSM_CRYPTO_ERR_NULL_PARAM;
+    
     // Size check
     if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
-    
+
     // Generate public key using basepoint = 9
-    cf_curve25519_mul_base(pub, key);
+    int ret = wc_curve25519_make_pub((int)len, (byte *)pub, (int)len, (byte *)key);
+    if (ret != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
     
     return HSM_CRYPTO_OK;
 }
 
-HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedKey(uint8_t *key, uint8_t *pub, uint8_t *shared, size_t len) {
-
+HSM_CRYPTO_STATUS HSM_CRYPTO_loadClientPublicKey(uint8_t *pub, size_t len) {
+    
     // Null check
-    if (!key || !pub || !shared) return HSM_CRYPTO_ERR_NULL_PARAM;
-
+    if (!pub) return HSM_CRYPTO_ERR_NULL_PARAM;
+    
     // Size check
     if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Import public key into X25519 key struct
+    ret = wc_curve25519_import_public_ex((byte *)pub, (word32)(len / sizeof(byte)), &client25519, EC25519_LITTLE_ENDIAN);
+    if (ret != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedSecret(uint8_t *secret, size_t *len) {
+
+    // Null check (for some reason they are using size_t pointer now)
+    if (!secret || !len) return HSM_CRYPTO_ERR_NULL_PARAM;
+
+    // Size check
+    if (*len == NULL || *len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Make sure our stored X25519 key structs are not null
+    if (!priv25519 || !client25519) return HSM_CRYPTO_ERR_SESSION_FAIL;
     
     // Generate shared key using basepoint = client's pub
-    cf_curve25519_mul(shared, key, pub);
+    if (
+        wc_curve25519_shared_secret_ex(
+            &priv25519,
+            &client25519,
+            (byte *)secret,
+            (word32 *)len,
+            EC25519_LITTLE_ENDIAN
+        ) != 0
+    ) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_deriveKeyAndIV(uint8_t *secret, uint8_t *key, size_t len, uint8_t *iv, size_t ivlen) {
+
+    // Null check
+    if (!secret || !key || !iv) return HSM_CRYPTO_ERR_NULL_PARAM;
+
+    // Size check
+    if (len != CRYPTO_AES_KEY_SIZE || ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Clear output buffers just in case
+    memset(key, 0, len);
+    memset(iv, 0, ivlen);
+    
+    // Get HKDF extract using HMAC-SHA256
+    byte extract[CRYPTO_AES_KEY_SIZE] = {0};
+    if (
+        wc_HKDF_Extract(
+            WC_SHA256,
+            NULL,
+            0,
+            (byte *)secret,
+            (word32)(len / sizeof(byte)),
+            &extract
+        ) != 0
+    ) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    
+    // Expand into key, IV
+    if (
+        wc_HKDF_Expand(
+            WC_SHA256,
+            &extract,
+            (word32)(CRYPTO_AES_KEY_SIZE / sizeof(byte)),
+            NULL,
+            0,
+            (byte *)key,
+            (word32)(CRYPTO_AES_KEY_SIZE / sizeof(byte))
+        ) != 0
+    ) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    if (
+        wc_HKDF_Expand(
+            WC_SHA256,
+            &extract,
+            (word32)(CRYPTO_AES_KEY_SIZE / sizeof(byte)),
+            NULL,
+            0,
+            (byte *)iv,
+            (word32)(CRYPTO_GCM_IV_SIZE / sizeof(byte))
+        ) != 0
+    ) return HSM_CRYPTO_ERR_SESSION_FAIL;
     
     return HSM_CRYPTO_OK;
 }
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_encryptCommandPayload(
-    uint8_t *sframe,
-    uint8_t *cframe,
-    size_t len,
     uint8_t *key,
-    size_t keylen
+    size_t keylen,
+    uint8_t *iv,
+    size_t ivlen,
+    uint8_t *at,
+    size_t atlen,
+    uint8_t *pt,
+    uint8_t *ct,
+    size_t len
 ) {
 
     // Null check
-    if (!sframe || !cframe || !key) return HSM_CRYPTO_ERR_NULL_PARAM;
+    if (!key || !iv || !at || !pt || !ct) return HSM_CRYPTO_ERR_NULL_PARAM;
     
     // Size check
-    if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
 
-    // Clear buffer for client just in case
-    memset(cframe, 0, len);
+    // Clear output buffers for client just in case
+    memset(ct, 0, len);
+    memset(at, 0, atlen);
+
+    // Encrypt the payload
+    (void) AESADV_AESGCM256_encrypt(
+        key,
+        iv,
+        NULL,
+        0,
+        pt,
+        len,
+        ct,
+        at
+    );
     
-} 
+    return HSM_CRYPTO_OK;
+}
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
     uint8_t *key,
@@ -129,14 +253,14 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
     size_t atlen,
     uint8_t *pt,
     uint8_t *ct,
-    size_t ptlen
+    size_t len
 ) {
     
     // Size checks
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
-    if (ptlen > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
 
     // Initialize dummy AAD
     // TODO: add AAD?
@@ -160,7 +284,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
         aad,
         aadlen,
         pt,
-        ptlen,
+        len,
         ct,
         at
     );
@@ -206,9 +330,55 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFileKey(
         keylen,
         iv,
         aad,
-        aad_len,
+        aadlen,
         at
     );
+    
+    return HSM_CRYPTO_OK;
+}
+
+HSM_CRYPTO_STATUS HSM_CRYPTO_decryptCommandPayload(
+    uint8_t *key,
+    size_t keylen,
+    uint8_t *iv,
+    size_t ivlen,
+    uint8_t *at,
+    size_t atlen,
+    uint8_t *ct,
+    uint8_t *pt,
+    size_t len
+) {
+    
+    // Null check
+    if (!key || !iv || !at || !pt || !ct) return HSM_CRYPTO_ERR_NULL_PARAM;
+    
+    // Size checks
+    if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Create a temp buffer that will handle the plaintext for now
+    // If success we copy to pt buf
+    uint8_t temp[len] = {0};
+
+    // Decrypt the file
+    int result = AESADV_AESGCM256_decrypt(
+        key,
+        iv,
+        NULL,
+        0,
+        ct,
+        len,
+        at,
+        temp
+    );
+    if (result != 0) return HSM_CRYPTO_ERR_AUTH_FAIL;
+
+    // Success means wwe can copy temp into pt
+    // Clear output buffers just in case
+    memset(pt, 0, len);
+    memcpy(pt, temp, len);
     
     return HSM_CRYPTO_OK;
 }
@@ -222,22 +392,23 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFile(
     size_t atlen,
     uint8_t *ct,
     uint8_t *pt,
-    size_t ctlen
+    size_t len
 ) {
     
     // Size checks
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
-    if (ctlen > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
 
     // Initialize dummy AAD
     // TODO: add AAD?
     uint8_t *aad = NULL;
     size_t aadlen = 0;
 
-    // Clear output buffers just in case
-    memset(pt, 0, ctlen);
+    // Create a temp buffer that will handle the plaintext for now
+    // If success we copy to pt buf
+    uint8_t temp[len] = {0};
 
     // Decrypt the file
     int result = AESADV_AESGCM256_decrypt(
@@ -246,11 +417,16 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFile(
         aad,
         aadlen,
         ct,
-        ctlen,
+        len,
         at,
-        pt
+        temp
     );
     if (result != 0) return HSM_CRYPTO_ERR_AUTH_FAIL;
+
+    // Success means wwe can copy temp into pt
+    // Clear output buffers just in case
+    memset(pt, 0, len);
+    memcpy(pt, temp, len);
     
     return HSM_CRYPTO_OK;
 }
@@ -275,23 +451,30 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFileKey(
     uint8_t *aad = NULL;
     size_t aadlen = 0;
 
-    // Clear output buffers just in case
-    memset(pkey, 0, keylen);
+    // Create a temp buffer that will handle the plaintext for now
+    // If success we copy to pt buf
+    uint8_t temp[keylen] = {0};
 
     // Transfer key from KEYSTORE to AESADV
     if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
 
     // Encrypt the key
     int result = AESADV_AESGCM256_decryptKey(
-        pkey,
         ckey,
+        temp,
         keylen,
         iv,
         aad,
-        aad_len,
+        aadlen,
         at
     );
     if (result != 0) return HSM_CRYPTO_ERR_AUTH_FAIL;
+
+    // Success means wwe can copy temp into pt
+    // Clear output buffers just in case
+    memset(pkey, 0, keylen);
+    memcpy(pkey, temp, len);
     
     return HSM_CRYPTO_OK;
 }
+

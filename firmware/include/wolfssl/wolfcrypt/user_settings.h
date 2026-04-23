@@ -19,6 +19,7 @@
 #define NO_DSA
 #define HAVE_CURVE25519
 #define HAVE_SHA256
+#define HAVE_HKDF
 #define WOLFSSL_SHA256
 #define WOLFSSL_HMAC
 #define WOLFSSL_SP_MATH

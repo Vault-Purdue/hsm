@@ -320,7 +320,7 @@ int AESADV_AESGCM256_decryptKey(
     const uint8_t *aad, size_t aad_len,
     uint8_t tag[16]
 ) {
-    uint8_t temp[keylen];
+    uint8_t temp[keylen] = {0};
     setup_gcm(DL_AESADV_DIR_DECRYPT, iv, aad_len, len);
 
     process_aad(aad, aad_len);
@@ -340,7 +340,6 @@ int AESADV_AESGCM256_decryptKey(
 
     if (diff == 0) {
         memcpy(pkey, temp, keylen);
-        memset(temp, 0, keylen);
         return 0;
     }
 
