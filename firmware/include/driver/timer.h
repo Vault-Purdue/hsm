@@ -13,5 +13,6 @@
 /********************* FUNCTION STUBS *********************/
 
 void TIMER_0_INST_IRQHandler(void);
+void TIMER_1_INST_IRQHandler(void);
 
 #endif /* TIMER_H */

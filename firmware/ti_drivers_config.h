@@ -53,12 +53,17 @@
 #define GPIO_RED_LED_PIN                                         (DL_GPIO_PIN_0)
 #define GPIO_RED_LED_IOMUX                                        (IOMUX_PINCM1)
 
-/* Defines for TIMER_0 */
-#define TIMER_0_INST                                                     (TIMG0)
-#define TIMER_0_INST_IRQHandler                                 TIMG0_IRQHandler
-#define TIMER_0_INST_INT_IRQN                                   (TIMG0_INT_IRQn)
-#define TIMER_0_INST_LOAD_VALUE                                         (19999U)
-#define TIMER_0_INST_PUB_0_CH                                                (1)
+/* Defines for TIMER_0 (Session Timeout)*/
+#define TIMER_0_INST                                                    (TIMG12)
+#define TIMER_0_INST_IRQHandler                                TIMG12_IRQHandler
+#define TIMER_0_INST_INT_IRQN                                  (TIMG12_INT_IRQn)
+#define TIMER_0_INST_LOAD_VALUE                                      (39999999U) // (1199999999U)
+
+/* Defines for TIMER_1 (PIN Backoff) */
+#define TIMER_1_INST                                                     (TIMG8)
+#define TIMER_1_INST_IRQHandler                                 TIMG8_IRQHandler
+#define TIMER_1_INST_INT_IRQN                                   (TIMG8_INT_IRQn)
+#define TIMER_1_INST_LOAD_VALUE                                            (40U)
 
 extern const uint_least8_t CONFIG_UART_0;
 extern const uint_least8_t UART_count;
@@ -71,5 +76,6 @@ void SYS_initPower(void);
 void UART1_IRQHandler(void);
 void GPIO_init(void);
 void TIMER_0_init(void);
+void TIMER_1_init(void);
 
 #endif /* ti_drivers_config_h */
