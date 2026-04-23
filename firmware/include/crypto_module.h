@@ -55,6 +55,7 @@ typedef enum {
  */
 HSM_CRYPTO_STATUS HSM_CRYPTO_init(void);
 
+#ifndef ENABLE_HSM_CRYPTO_SESSION_TEST
 /**
  * @brief Generates the X25519 private session key.
  *
@@ -67,6 +68,24 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_init(void);
  * @retval 6: Failed to import the buffer into the private key struct.
  */
 HSM_CRYPTO_STATUS HSM_CRYPTO_generatePrivateSessionKey(uint8_t *buf, size_t len);
+#endif
+
+#ifdef ENABLE_HSM_CRYPTO_SESSION_TEST
+/**
+ * @brief Loads the X25519 private session key into the module.
+ *
+ * NOTE: for testing only.
+ *
+ * @param buf Pointer to the buffer of the key.
+ * @param len Size of the buffer in bytes.
+ * 
+ * @retval 0: Key was successfully loaded.
+ * @retval 1: Null parameter was given in the parameters.
+ * @retval 2: Invalid length was given in the parameters.
+ * @retval 6: Failed to import the buffer into the private key struct.
+ */
+HSM_CRYPTO_STATUS HSM_CRYPTO_loadPrivateSessionKey(uint8_t *buf, size_t len);
+#endif
 
 /**
  * @brief Generates the X25519 public session key using the private key.
@@ -106,7 +125,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_loadClientPublicKey(uint8_t *pub, size_t len);
  * @retval 2: Invalid length for buffer was given.
  * @retval 6: Key structs are null, or failed to store the secret in the buffer.
  */
-HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedSecret(uint8_t *secret, size_t *len);
+HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedSecret(uint8_t *secret, size_t len);
 
 /**
  * @brief Generates a derived AES-256-GCM key and IV using the shared ECDH secret.

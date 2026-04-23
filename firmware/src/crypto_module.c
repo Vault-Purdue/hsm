@@ -12,6 +12,34 @@
 
 static curve25519_key priv25519;
 static curve25519_key client25519;
+static WC_RNG rng;
+
+/**
+ * @brief Defines the WolfSSL RNG function. Needed for hashing and Curve25519, apparently.
+ *
+ * @param output Pointer to the buffer of the byte output.
+ * @param sz Size of the buffer in bytes.
+ */
+int HSM_CRYPTO_useCryptoRNG(unsigned char* output, unsigned int sz) {
+
+    // Due to weird behavior, we can't use the HSM TRNG driver here, so we
+    // need to repeat the functionality for WolfSSL types
+    for (unsigned int i = 0; i < sz; i += 4) {
+        uint32_t r = 0;
+
+        // Get capture
+        while (!DL_TRNG_isCaptureReady(TRNG));
+        r = DL_TRNG_getCapture(TRNG);
+        DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+        DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+
+        // Horrible hack that aligns the bytes in case we accidentally floor a non-divisible by 4
+        unsigned int chunk = (sz - i > 4) ? 4 : (sz - i);
+        memcpy(&output[i], &r, chunk);
+    }
+
+    return 0;
+}
 
 HSM_CRYPTO_STATUS HSM_CRYPTO_init(void) {
     
@@ -21,9 +49,15 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_init(void) {
     // Initialize the AESADV driver
     AESADV_init();
 
+    // Initialize RNG because apparently it is needed
+    // even when you are not generating a private key
+    wc_InitRng(&rng);
+
     // Initialize the X25519 key structs for ECDH
     if (wc_curve25519_init(&priv25519) != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
     if (wc_curve25519_init(&client25519) != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    if (wc_curve25519_set_rng(&priv25519, &rng) != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    if (wc_curve25519_set_rng(&client25519, &rng) != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
 
     return HSM_CRYPTO_OK;
 }
@@ -97,6 +131,32 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generatePrivateSessionKey(uint8_t *buf, size_t len)
     return HSM_CRYPTO_OK;
 }
 
+HSM_CRYPTO_STATUS HSM_CRYPTO_loadPrivateSessionKey(uint8_t *buf, size_t len) {
+
+    // Null check
+    if (!buf) return HSM_CRYPTO_ERR_NULL_PARAM;
+
+    // Size check
+    if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+
+    // Perform the necessary clamping procedure
+    buf[0] &= 248;
+    buf[31] &= 127;
+    buf[31] |= 64;
+
+    // Import private key into X25519 key struct
+    if (
+        wc_curve25519_import_private_ex(
+            (byte *) buf,
+            (word32)(len / sizeof(byte)),
+            &priv25519,
+            EC25519_LITTLE_ENDIAN
+        ) != 0
+    ) return HSM_CRYPTO_ERR_SESSION_FAIL;
+
+    return HSM_CRYPTO_OK;
+}
+
 HSM_CRYPTO_STATUS HSM_CRYPTO_generatePublicSessionKey(uint8_t *key, uint8_t *pub, size_t len) {
     
     // Null check
@@ -121,22 +181,24 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_loadClientPublicKey(uint8_t *pub, size_t len) {
     if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
 
     // Import public key into X25519 key struct
-    ret = wc_curve25519_import_public_ex((byte *)pub, (word32)(len / sizeof(byte)), &client25519, EC25519_LITTLE_ENDIAN);
+    int ret = wc_curve25519_import_public_ex((byte *)pub, (word32)(len / sizeof(byte)), &client25519, EC25519_LITTLE_ENDIAN);
     if (ret != 0) return HSM_CRYPTO_ERR_SESSION_FAIL;
     
     return HSM_CRYPTO_OK;
 }
 
-HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedSecret(uint8_t *secret, size_t *len) {
+HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedSecret(uint8_t *secret, size_t len) {
 
-    // Null check (for some reason they are using size_t pointer now)
-    if (!secret || !len) return HSM_CRYPTO_ERR_NULL_PARAM;
+    // Null check
+    if (!secret) return HSM_CRYPTO_ERR_NULL_PARAM;
 
     // Size check
-    if (*len == NULL || *len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
+    if (len != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
 
-    // Make sure our stored X25519 key structs are not null
-    if (!priv25519 || !client25519) return HSM_CRYPTO_ERR_SESSION_FAIL;
+    // We need to pass in a word32 pointer because it returns the size
+    // We already know what the size will be, so these are garbage values
+    word32 garbage = 256;
+    word32 *garbageptr = &garbage;
     
     // Generate shared key using basepoint = client's pub
     if (
@@ -144,7 +206,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_generateSharedSecret(uint8_t *secret, size_t *len) 
             &priv25519,
             &client25519,
             (byte *)secret,
-            (word32 *)len,
+            garbageptr,
             EC25519_LITTLE_ENDIAN
         ) != 0
     ) return HSM_CRYPTO_ERR_SESSION_FAIL;
@@ -165,7 +227,8 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_deriveKeyAndIV(uint8_t *secret, uint8_t *key, size_
     memset(iv, 0, ivlen);
     
     // Get HKDF extract using HMAC-SHA256
-    byte extract[CRYPTO_AES_KEY_SIZE] = {0};
+    byte extract[CRYPTO_AES_KEY_SIZE];
+    memset(extract, 0, CRYPTO_AES_KEY_SIZE);
     if (
         wc_HKDF_Extract(
             WC_SHA256,
@@ -173,18 +236,21 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_deriveKeyAndIV(uint8_t *secret, uint8_t *key, size_
             0,
             (byte *)secret,
             (word32)(len / sizeof(byte)),
-            &extract
+            extract
         ) != 0
     ) return HSM_CRYPTO_ERR_SESSION_FAIL;
+
+    const byte *aesKeyInfo = (byte *)"aes-key";
+    const byte *aesIVInfo = (byte *)"iv";
     
     // Expand into key, IV
     if (
         wc_HKDF_Expand(
             WC_SHA256,
-            &extract,
+            extract,
             (word32)(CRYPTO_AES_KEY_SIZE / sizeof(byte)),
-            NULL,
-            0,
+            aesKeyInfo,
+            7,
             (byte *)key,
             (word32)(CRYPTO_AES_KEY_SIZE / sizeof(byte))
         ) != 0
@@ -192,10 +258,10 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_deriveKeyAndIV(uint8_t *secret, uint8_t *key, size_
     if (
         wc_HKDF_Expand(
             WC_SHA256,
-            &extract,
+            extract,
             (word32)(CRYPTO_AES_KEY_SIZE / sizeof(byte)),
-            NULL,
-            0,
+            aesIVInfo,
+            2,
             (byte *)iv,
             (word32)(CRYPTO_GCM_IV_SIZE / sizeof(byte))
         ) != 0
@@ -271,7 +337,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
     memset(key, 0, keylen);
     memset(iv, 0, ivlen);
     memset(at, 0, atlen);
-    memset(ct, 0, ptlen);
+    memset(ct, 0, len);
 
     // Generate key, IV
     (void) HSM_CRYPTO_generateKey(key, keylen);
@@ -348,7 +414,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptCommandPayload(
     uint8_t *pt,
     size_t len
 ) {
-    
+
     // Null check
     if (!key || !iv || !at || !pt || !ct) return HSM_CRYPTO_ERR_NULL_PARAM;
     
@@ -357,10 +423,11 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptCommandPayload(
     if (ivlen != CRYPTO_GCM_IV_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (atlen != CRYPTO_GCM_TAG_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
     if (len > CRYPTO_CHUNK_PAYLOAD) return HSM_CRYPTO_ERR_BAD_LENGTH;
-
+    
     // Create a temp buffer that will handle the plaintext for now
     // If success we copy to pt buf
-    uint8_t temp[len] = {0};
+    uint8_t temp[len];
+    memset(temp, 0, len);
 
     // Decrypt the file
     int result = AESADV_AESGCM256_decrypt(
@@ -408,7 +475,8 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFile(
 
     // Create a temp buffer that will handle the plaintext for now
     // If success we copy to pt buf
-    uint8_t temp[len] = {0};
+    uint8_t temp[len];
+    memset(temp, 0, len);
 
     // Decrypt the file
     int result = AESADV_AESGCM256_decrypt(
@@ -453,7 +521,8 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFileKey(
 
     // Create a temp buffer that will handle the plaintext for now
     // If success we copy to pt buf
-    uint8_t temp[keylen] = {0};
+    uint8_t temp[keylen];
+    memset(temp, 0, keylen);
 
     // Transfer key from KEYSTORE to AESADV
     if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
@@ -473,7 +542,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFileKey(
     // Success means wwe can copy temp into pt
     // Clear output buffers just in case
     memset(pkey, 0, keylen);
-    memcpy(pkey, temp, len);
+    memcpy(pkey, temp, keylen);
     
     return HSM_CRYPTO_OK;
 }

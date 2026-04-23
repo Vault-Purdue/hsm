@@ -11,9 +11,6 @@
 
 void HSM_TRNG_generateNumber(uint32_t *buf, size_t len) {
 
-    // Zeroize the buffer, just in case
-    memset(buf, 0, len);
-
     // Write random 32-bit numbers to TRNG buffer
     for (uint8_t i = 0; i < len; i++) {
         while (!DL_TRNG_isCaptureReady(TRNG));
