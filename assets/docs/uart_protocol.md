@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol - Version: 1.4
+# HSM UART Communication Protocol - Version: 1.5
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.
@@ -33,13 +33,13 @@ This field identifies the type of message the frame is, and thus how the payload
 | Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Host | 
 | Key Exchange | 0x02 | No | Key exchange information? | ? | AUTH | Both |
 | PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host |
-| Pin Exchange ACK | 0xF3 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | 
 | Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) |
 | File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 2B File ID | 1 | READ/WRITE | Host |
 | File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both |
-| File Transfer Complete | 0x24 | No | None | 0 | READ/WRITE | Both |
+| File Transfer Complete | 0x22 | No | None | 0 | READ/WRITE | Both |
 | File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM |
 | File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | Both |
+| Pin Exchange ACK | 0xF2 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | 
 
 ## Payload Length
 
