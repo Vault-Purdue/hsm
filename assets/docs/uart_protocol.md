@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol - Version: 1.5
+# HSM UART Communication Protocol - Version: 1.6
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.
@@ -17,7 +17,7 @@ One UART "frame" is composed of the following structure:
 
 | SoF | Message ID | Payload Length | Payload | Checksum |
 | --- | --- | --- | --- | --- |
-| 1 Byte | 1 Byte | 2 Byte | 0 - 128 Bytes | 2 Bytes |
+| 1 Byte | 1 Byte | 1 Byte | 0 - 128 Bytes | 2 Bytes |
 
 ## Start of Frame Indicator (SoF)
 
