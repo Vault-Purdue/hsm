@@ -20,14 +20,13 @@ size_t wrCount;
 typedef enum {
     WAIT_START,
     READ_MSGID,
-    READ_LENGTH_H,
-    READ_LENGTH_L,
+    READ_LENGTH,
     READ_PAYLOAD,
     READ_CHECKSUM_H,
     READ_CHECKSUM_L
 } UartReceiverState;
 
-#define MAX_PAYLOAD 1024
+#define MAX_PAYLOAD 128
 #define START_BYTE 0xAA
 
 UartReceiverState parserState = WAIT_START;
@@ -48,8 +47,6 @@ void uart_init(void) {
     rdCount = 0;
     wrCount = 0;
     UART_Params params;
-
-    DL_GPIO_enablePower(GPIOA);
 
     UART_Params_init(&params);
     // Modify UART params
@@ -83,14 +80,10 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
             }
         case READ_MSGID:
             rx_frame->msg_id = byte;
-            parserState = READ_LENGTH_H;
+            parserState = READ_LENGTH;
             break;
-        case READ_LENGTH_H:
-            rx_frame->payload_len = byte << 8;
-            parserState = READ_LENGTH_L;
-            break;
-        case READ_LENGTH_L:
-            rx_frame->payload_len += byte;
+        case READ_LENGTH:
+            rx_frame->payload_len = byte;
             if (rx_frame->payload_len > MAX_PAYLOAD) {
                 parserState = WAIT_START;
                 return UART_RECV_ERROR_PAYLOAD_TOO_LONG;
@@ -154,17 +147,16 @@ int uart_receive_frame(uart_frame_t *rx_frame) {
  * Assembles a UART frame for the given payload and sends it.
  */
 int uart_send_frame(uint8_t msg_id, uint8_t *payload, uint16_t payload_len) {
+    //TODO: Make a way for users to encrypt their payload BEFORE it is passed to this function.
     if (payload_len > UART_MAX_PAYLOAD_LEN) {
         return UART_SEND_ERROR_MSG_TOO_LONG;
     }
 
-    uint8_t header[4];
+    uint8_t header[3];
     header[0] = START_BYTE;
     // TODO: add checking to confirm msg_id is valid
     header[1] = msg_id;
-    // Swapping payload length bits for proper endianness
-    header[2] = (uint8_t)((payload_len >> 8) & 0xFF);
-    header[3] = (uint8_t)(payload_len & 0xFF);
+    header[2] = payload_len;
 
     // TODO: generate checksum
     uint16_t checksum = 0xFFFF;
@@ -174,11 +166,13 @@ int uart_send_frame(uint8_t msg_id, uint8_t *payload, uint16_t payload_len) {
     swapped_checksum[1] = (uint8_t)(checksum & 0xFF);
 
     // Send write frame
-    UART_write(uartHandle, header, 4, &wrCount);
-    UART_write(uartHandle, payload, payload_len, &wrCount);
-    UART_write(uartHandle, swapped_checksum, 2, &wrCount);
+    uint8_t send_buffer[5 + payload_len];
+    memcpy(&send_buffer[0], header, 3);
+    memcpy(&send_buffer[3], payload, payload_len);
+    memcpy(&send_buffer[3+payload_len], swapped_checksum, 2);
+    UART_write(uartHandle, send_buffer, 5+payload_len, &wrCount);
 
-    return UART_SEND_NO_ERROR;
+    return UART_SEND_SUCCESS;
 }
 
 /**

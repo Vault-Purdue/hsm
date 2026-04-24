@@ -54,7 +54,9 @@ int main(void) {
         while (result == UART_RECV_NO_ERROR) {
             result = uart_receive_frame(&rx_frame);
         }
-        
+
+        // Send a debug message if an error was encountered.
+        // TOOD: Debug messaging will probably go away in the final version, so this should be handled in a different way?
         if (result != UART_RECV_FULL_FRAME_RECEIVED) {
             STATUS_LED_OFF();
             switch (result) {
@@ -78,36 +80,45 @@ int main(void) {
 
         uart_send_debug_msg("Frame successfully received.");
 
+
         /* Route by Message ID */
         switch (rx_frame.msg_id) {
         case MSG_SESSION_OPEN:
             //handle_session_open(&rx_frame);
+            uart_send_debug_msg("Session Open message received.");
             break;
         case MSG_KEY_EXCHANGE:
+            //TODO: Decrypt payload (if necessary)
             //handle_key_exchange(&rx_frame);
             break;
         case MSG_PIN_EXCHANGE:
+            //TODO: Decrypt payload (if necessary)
             //handle_pin_exchange(&rx_frame);
-            break;
+            break;  
         case MSG_SESSION_CLOSE:
             //handle_session_close(&rx_frame);
-            break;
-        case MSG_STATUS_QUERY:
-            //handle_status_query(&rx_frame);
             break;
         case MSG_FILE_TRANSFER_REQUEST:
             //handle_file_transfer_request(&rx_frame);
             break;
-        case MSG_FILE_START:
-        case MSG_FILE_BLOCK:
-        case MSG_FILE_END:
-            //handle_file_block(&rx_frame);
+        case MSG_FILE_CONTENTS:
+            //TODO: Decrypt payload (if necessary)
+            //handle_file_contents(&rx_frame);
             break;
         case MSG_FILE_TRANSFER_COMPLETE:
             //handle_file_transfer_complete(&rx_frame);
             break;
+        case MSG_FILE_REQUEST_ACK:
+            //handle_file_request_ack(&rx_frame);
+            break;
+        case MSG_FILE_TRANSFER_COMPLETE_ACK:
+            //handle_file_transfer_complet_ack(&rx_frame);
+            break;
+        case MSG_PIN_EXCHANGE_ACK:
+            //handle_pin_exchange_ack(&rx_frame);
+            break;
         default:
-            //print_debug("Unknown Message ID\n");
+            //uart_send_debug_msg("Unknown Message ID\n");
             break;
         }
     }
