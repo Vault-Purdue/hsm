@@ -10,7 +10,7 @@
 
 #include "ti_drivers_config.h"
 
-#define STATUS_LED_ON()  DL_GPIO_setPins(GPIOA, GPIO_RED_LED_PIN)
-#define STATUS_LED_OFF() DL_GPIO_clearPins(GPIOA, GPIO_RED_LED_PIN)
+#define STATUS_LED_ON()  DL_GPIO_clearPins(GPIOA, GPIO_RED_LED_PIN)
+#define STATUS_LED_OFF() DL_GPIO_setPins(GPIOA, GPIO_RED_LED_PIN)
 
 #endif // __STATUS_LED__
