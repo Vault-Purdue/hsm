@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol - Version: 1.3
+# HSM UART Communication Protocol - Version: 1.6
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.
@@ -17,7 +17,7 @@ One UART "frame" is composed of the following structure:
 
 | SoF | Message ID | Payload Length | Payload | Checksum |
 | --- | --- | --- | --- | --- |
-| 1 Byte | 1 Byte | 2 Byte | 0 - 1024 Bytes | 2 Bytes |
+| 1 Byte | 1 Byte | 1 Byte | 0 - 128 Bytes | 2 Bytes |
 
 ## Start of Frame Indicator (SoF)
 
@@ -28,27 +28,22 @@ Because all frames also have a Payload Length field, an End of Frame indicator w
 
 This field identifies the type of message the frame is, and thus how the payload should be interpreted or routed. Possible Message ID values are as follows:
 
-| Message Type | Byte Value | Is Payload Encrypted? | Payload Content | Relevant Host Command | Sender |
-| --- | --- | --- | --- | --- | --- |
-| Session Open | 0x00 | No | `0x41` ('A' of Auth) | AUTH | Host | 
-| Key Exchange | 0x01 | No | Key exchange information? | AUTH | Both |
-| PIN Exchange | 0x02 | Yes? | 6 bytes, ASCII PIN digits | AUTH | Host |
-| Pin Exchange ACK | 0xF3 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | AUTH | HSM | 
-| Session Close | 0x0F | No | None | CLOSE | Host (Both?) |
-| Status Query | 0x10 | No | Requested status/filesystem information | STATUS | Host |
-| Status Response | 0x11 | No | Requested status/filesystem information | STATUS | HSM |
-| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 2B File ID | READ/WRITE | Host |
-| File Start | 0x21 | Yes | First block of file | READ/WRITE | Both |
-| File Block | 0x22 | Yes | Any block of file | READ/WRITE | Both |
-| File End | 0x23 | Yes | Final block of file | READ/WRITE | Both |
-| File Transfer Complete | 0x24 | No | Checksum for whole file verification | READ/WRITE | Both |
-| File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | READ/WRITE | HSM |
-| File Block ACK (unused?) | 0xF1 | No | None | READ/WRITE | Both |
-| File Transfer Complete ACK | 0xF2 | No | `0x00`: checksum OK, `0x01`: mismatch | READ/WRITE | Both |
+| Message Type | Byte Value | Is Payload Encrypted? | Payload Content | Payload Length (bytes) | Relevant Host Command | Sender |
+| --- | --- | --- | --- | --- | --- | --- |
+| Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Host | 
+| Key Exchange | 0x02 | No | Key exchange information? | ? | AUTH | Both |
+| PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host |
+| Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) |
+| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 2B File ID | 1 | READ/WRITE | Host |
+| File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both |
+| File Transfer Complete | 0x22 | No | None | 0 | READ/WRITE | Both |
+| File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM |
+| File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | Both |
+| Pin Exchange ACK | 0xF2 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | 
 
 ## Payload Length
 
-Length of the Payload, in bytes. Possible values are 0-1024.
+Length of the Payload, in bytes. Possible values are 0-128.
 
 ## Payload
 

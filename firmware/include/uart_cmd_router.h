@@ -14,6 +14,24 @@
 #include <string.h>
 #include <stdint.h>
 
+// See hsm/assets/docs/uart_protocol.md for list of message types.
+typedef enum {
+    MSG_SESSION_OPEN               = 0x01,
+    MSG_KEY_EXCHANGE               = 0x02,
+    MSG_PIN_EXCHANGE               = 0x03,      
+    MSG_SESSION_CLOSE              = 0x0F,
+
+    MSG_FILE_TRANSFER_REQUEST      = 0x20,
+    MSG_FILE_CONTENTS              = 0x21,
+    MSG_FILE_TRANSFER_COMPLETE     = 0x22,
+
+    MSG_FILE_REQUEST_ACK           = 0xF0,
+    MSG_FILE_TRANSFER_COMPLETE_ACK = 0xF1,
+    MSG_PIN_EXCHANGE_ACK           = 0xF2,
+
+    MSG_DEBUG                      = 0xFF
+} uart_msg_id_t; // TODO: Change the names as needed
+
 typedef enum direction {
     EAST, NORTH, WEST, SOUTH
 }host_message_t;
