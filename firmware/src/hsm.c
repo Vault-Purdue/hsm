@@ -43,7 +43,13 @@ int main(void) {
     // Set breakpoint if we fail crypto session test
     if (!HSM_CRYPTOTEST_sessionTest()) {
         __BKPT();
+    } else if (!HSM_CRYPTOTEST_fileKeyEncryptionTest()) {
+        __BKPT();
+    } else if (!HSM_CRYPTOTEST_messagePayloadEncryptionTest()) {
+        __BKPT();
     }
+
+    __BKPT();
 
     if (AESADV_GCM_selfTest()) {
         STATUS_LED_ON(); 

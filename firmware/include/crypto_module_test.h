@@ -15,4 +15,18 @@
  */
 bool HSM_CRYPTOTEST_sessionTest(void);
 
+/**
+ * @brief Tests encrypting / decrypting AES-256-GCM plaintext keys.
+ *
+ * @returns true on success.
+ */
+bool HSM_CRYPTOTEST_fileKeyEncryptionTest(void);
+
+/**
+ * @brief Tests encrypting / decrypting message payloads.
+ *
+ * @returns true on success.
+ */
+bool HSM_CRYPTOTEST_messagePayloadEncryptionTest(void);
+
 #endif

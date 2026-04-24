@@ -61,7 +61,7 @@ int AESADV_AESGCM256_encrypt(
  */
 int AESADV_AESGCM256_encryptKey(
     const uint8_t *pkey,
-    const uint8_t *ckey,
+    uint8_t *ckey,
     size_t keylen,
     const uint8_t iv[12],
     const uint8_t *aad, size_t aad_len,
@@ -109,7 +109,7 @@ int AESADV_AESGCM256_decrypt(
  */
 int AESADV_AESGCM256_decryptKey(
     const uint8_t *ckey,
-    const uint8_t *pkey,
+    uint8_t *pkey,
     size_t keylen,
     const uint8_t iv[12],
     const uint8_t *aad, size_t aad_len,

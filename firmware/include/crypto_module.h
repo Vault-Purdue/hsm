@@ -247,15 +247,15 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFileKey(
  * @retval 2: Invalid length was given in the parameters.
  * @retval 5: Auth tag indicated integrity failure.
  */
-HSM_CRYPTO_STATUS HSM_CRYPTO_encryptCommandPayload(
+HSM_CRYPTO_STATUS HSM_CRYPTO_decryptCommandPayload(
     uint8_t *key,
     size_t keylen,
     uint8_t *iv,
     size_t ivlen,
     uint8_t *at,
     size_t atlen,
-    uint8_t *pt,
     uint8_t *ct,
+    uint8_t *pt,
     size_t len
 );
 
