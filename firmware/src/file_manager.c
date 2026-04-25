@@ -9,6 +9,9 @@
 #include "flash.h"
 
 #define MAX_SLOTS  8   /* one sector = 8 slots of 128B */
+#define CRYPTO_AES_KEY_SIZE 128
+#define PIN_LEN 6
+#define PIN_BUF_SIZE (PIN_LEN + 1)
 
 /************************ INTERNAL HELPERS ***********************/
 
@@ -458,5 +461,19 @@ fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek)
     memcpy(out_dek, key.encrypted_dek, CRYPTO_AES_KEY_SIZE);
 #endif
 
+    return FM_OK;
+}
+
+fm_status_t fm_read_pin(char *pin_buffer, size_t buffer_size) {
+    if (pin_buffer == NULL || buffer_size != PIN_BUF_SIZE) {
+        return FM_ERROR;
+    }
+
+    memcpy(pin_buffer, "123456", PIN_BUF_SIZE);
+    return FM_OK;
+}
+
+fm_status_t fm_write_pin(const char *pin) {
+    (void)pin;
     return FM_OK;
 }

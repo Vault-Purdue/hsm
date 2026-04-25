@@ -44,12 +44,19 @@ typedef struct __attribute__((packed, aligned(16))) {
 } fm_key_layout;
 
  typedef enum {
+      FM_ERROR,
+      FM_OK,
       FM_WR_SUCESS,
       FM_RD_SUCESS,
       FM_WR_ERROR,
       FM_RD_ERROR,
       FM_ERROR_NULL,
-      FM_ERROR_SIZE
+      FM_ERROR_SIZE,
+      FM_ERROR_NOT_FOUND,
+      FM_SLOT_NOT_FOUND,
+      FM_ERROR_FLASH,
+      FM_ERROR_FULL,
+      FM_ERROR_EXISTS
  } fm_status_t;
 
 //TODO: Add descriptions
@@ -59,3 +66,7 @@ fm_status_t fm_delete_file(uint8_t file_id);
 
 fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size);
 fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek);
+
+// dummy functions
+fm_status_t fm_read_pin(char *pin_buffer, size_t buffer_size);
+fm_status_t fm_write_pin(const char *pin);
