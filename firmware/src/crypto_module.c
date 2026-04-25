@@ -321,6 +321,9 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFile(
     uint8_t *ct,
     size_t len
 ) {
+
+    // Null check
+    if (!key || !iv || !at || !pt || !ct) return HSM_CRYPTO_ERR_NULL_PARAM;
     
     // Size checks
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
@@ -367,6 +370,9 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFileKey(
     uint8_t *at,
     size_t atlen
 ) {
+
+    // Null check
+    if (!pkey || !ckey || !iv || !at) return HSM_CRYPTO_ERR_NULL_PARAM;
     
     // Size checks
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
@@ -462,6 +468,9 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFile(
     uint8_t *pt,
     size_t len
 ) {
+
+    // Null check
+    if (!key || !iv || !at || !pt || !ct) return HSM_CRYPTO_ERR_NULL_PARAM;
     
     // Size checks
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
@@ -509,6 +518,9 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFileKey(
     uint8_t *at,
     size_t atlen
 ) {
+
+    // Null check
+    if (!pkey || !ckey || !iv || !at) return HSM_CRYPTO_ERR_NULL_PARAM;
     
     // Size checks
     if (keylen != CRYPTO_AES_KEY_SIZE) return HSM_CRYPTO_ERR_BAD_LENGTH;
