@@ -22,6 +22,7 @@
 void init() {
     // Initialize all of the hardware components
     SYS_initPower();
+    GPIO_init();
 
     // Initialize crypto module
     HSM_CRYPTO_init();
@@ -48,7 +49,7 @@ int main(void) {
         __BKPT();
     }
 
-    __BKPT();
+    //__BKPT();
 
     if (AESADV_GCM_selfTest()) {
         STATUS_LED_ON(); 
@@ -69,23 +70,25 @@ int main(void) {
         while (result == UART_RECV_NO_ERROR) {
             result = uart_receive_frame(&rx_frame);
         }
-
+        //STATUS_LED_OFF();
+        __BKPT();
+        
         // Send a debug message if an error was encountered.
         // TOOD: Debug messaging will probably go away in the final version, so this should be handled in a different way?
         if (result != UART_RECV_FULL_FRAME_RECEIVED) {
             STATUS_LED_OFF();
             switch (result) {
             case UART_RECV_ERROR_BAD_SOF:
-                uart_send_debug_msg("ERROR: Msg Bad SOF");
+                uart_send_debug_msg("ERROR: Msg Bad SOF\n");
                 break;
             case UART_RECV_ERROR_PAYLOAD_TOO_LONG:
-                uart_send_debug_msg("ERROR: Msg Bad Len");
+                uart_send_debug_msg("ERROR: Msg Bad Len\n");
                 break;
             case UART_RECV_ERROR_BAD_CHECKSUM:
-                uart_send_debug_msg("ERROR: Msg Bad Checksum");
+                uart_send_debug_msg("ERROR: Msg Bad Checksum\n");
                 break;
             default:
-                uart_send_debug_msg_with_error_code("ERROR: Failed to receive frame", result);
+                uart_send_debug_msg_with_error_code("ERROR: Failed to receive frame\n", result);
                 break;
             }
             continue;
@@ -93,17 +96,18 @@ int main(void) {
 
         STATUS_LED_OFF();
 
-        uart_send_debug_msg("Frame successfully received.");
+        uart_send_debug_msg("Frame successfully received.\n");
 
-
+        __BKPT();
         /* Route by Message ID */
         switch (rx_frame.msg_id) {
         case MSG_SESSION_OPEN:
             //handle_session_open(&rx_frame);
-            uart_send_debug_msg("Session Open message received.");
+            uart_send_debug_msg("Session Open message received.\n");
             break;
         case MSG_KEY_EXCHANGE:
             //TODO: Decrypt payload (if necessary)
+            uart_send_debug_msg("Key exchange message received.\n");
             //handle_key_exchange(&rx_frame);
             break;
         case MSG_PIN_EXCHANGE:
