@@ -47,7 +47,7 @@ int main(void) {
         __BKPT();
     }
 
-    __BKPT();
+    //__BKPT();
 
     if (AESADV_GCM_selfTest()) {
         STATUS_LED_ON(); 
