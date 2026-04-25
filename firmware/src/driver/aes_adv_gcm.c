@@ -22,6 +22,15 @@ static __attribute__((aligned(4))) uint8_t iv128[16] = {
     0x00, 0x00, 0x00, 0x01
 };
 
+// Temporary placement for master root key
+// TODO: remove this and every mention of it in the file when CSC is implemented
+static uint8_t root_key[32] = {
+    0x26, 0x8e, 0xd1, 0xb5, 0xd7, 0xc9, 0xc7, 0x30,
+    0x4f, 0x9c, 0xae, 0x5f, 0xc4, 0x37, 0xb4, 0xcd,
+    0x3a, 0xeb, 0xe2, 0xec, 0x65, 0xf0, 0xd8, 0x5c,
+    0x39, 0x18, 0xd3, 0xd3, 0xb5, 0xbb, 0xa8, 0x9b
+};
+
 /* Aligned staging buffer for 256-bit AES key. */
 static __attribute__((aligned(4))) uint8_t key_aligned[32];
 
@@ -245,6 +254,29 @@ int AESADV_AESGCM256_encrypt(
     return 0;
 }
 
+int AESADV_AESGCM256_encryptKey(
+    const uint8_t *pkey,
+    uint8_t *ckey,
+    size_t keylen,
+    const uint8_t iv[12],
+    const uint8_t *aad, size_t aad_len,
+    uint8_t tag[16]
+) {
+    // TODO: remove this load_key when CSC is operational
+    load_key(root_key);
+    setup_gcm(DL_AESADV_DIR_ENCRYPT, iv, aad_len, keylen);
+
+    process_aad(aad, aad_len);
+    process_blocks(pkey, ckey, keylen);
+
+    DL_AESADV_haltOperationAndGenerateDigest(AESADV);
+    read_tag(tag);
+
+    clear_data();
+
+    return 0;
+}
+
 /**
  * @brief Perform AES-256-GCM authenticated decryption
  *
@@ -289,6 +321,44 @@ int AESADV_AESGCM256_decrypt(
     clear_data();
 
     return diff == 0 ? 0 : -1;
+}
+
+int AESADV_AESGCM256_decryptKey(
+    const uint8_t *ckey,
+    uint8_t *pkey,
+    size_t keylen,
+    const uint8_t iv[12],
+    const uint8_t *aad, size_t aad_len,
+    uint8_t tag[16]
+) {
+    uint8_t temp[keylen];
+    memset(temp, 0, keylen);
+    
+    // TODO: remove this load_key when CSC is operational
+    load_key(root_key);
+    setup_gcm(DL_AESADV_DIR_DECRYPT, iv, aad_len, keylen);
+
+    process_aad(aad, aad_len);
+    process_blocks(ckey, temp, keylen);
+
+    DL_AESADV_haltOperationAndGenerateDigest(AESADV);
+
+    uint8_t calc_tag[16];
+    read_tag(calc_tag);
+
+    // constant-time compare
+    uint32_t diff = 0;
+    for (int i = 0; i < 16; i++)
+        diff |= calc_tag[i] ^ tag[i];
+
+    clear_data();
+
+    if (diff == 0) {
+        memcpy(pkey, temp, keylen);
+        return 0;
+    }
+
+    return -1;
 }
 
 /**

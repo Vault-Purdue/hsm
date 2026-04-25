@@ -101,12 +101,15 @@ void SYS_initPower(void)
     DL_GPIO_reset(GPIOC);
     DL_TimerG_reset(TIMER_0_INST);
     DL_TimerG_reset(TIMER_1_INST);
+    DL_TRNG_reset(TRNG);
 
     DL_GPIO_enablePower(GPIOA);
     DL_GPIO_enablePower(GPIOB);
     DL_GPIO_enablePower(GPIOC);
     DL_TimerG_enablePower(TIMER_0_INST);
     DL_TimerG_enablePower(TIMER_1_INST);
+    DL_TRNG_enablePower(TRNG);
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
     
     delay_cycles(POWER_STARTUP_DELAY);
 
@@ -180,7 +183,6 @@ static const DL_TimerG_TimerConfig gTIMER_1TimerConfig = {
 };
 
 void TIMER_1_init(void) {
-
     DL_TimerG_setClockConfig(TIMER_1_INST,
         (DL_TimerG_ClockConfig *) &gTIMER_1ClockConfig);
     NVIC_EnableIRQ(TIMER_1_INST_INT_IRQN);
@@ -188,4 +190,103 @@ void TIMER_1_init(void) {
         (DL_TimerG_TimerConfig *) &gTIMER_1TimerConfig);
     DL_TimerG_enableInterrupt(TIMER_1_INST , DL_TIMERG_INTERRUPT_ZERO_EVENT);
     DL_TimerG_enableClock(TIMER_1_INST);
+}
+
+HSM_TRNG_STATUS HSM_TRNG_init(void) {
+    // Set the TRNG functional clock
+    // LP-MSPM0L2228 has a 32MHz system clock, we use the TRNG Clock Divider
+    // to establish the frequency of the TRNG clock
+    DL_TRNG_setClockDivider(TRNG, TRNG_CLOCK_DIVIDE);
+
+    // Clear interrupts
+    DL_TRNG_disableInterrupt(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+    DL_TRNG_disableInterrupt(TRNG, DL_TRNG_INTERRUPT_CMD_FAIL_EVENT);
+    DL_TRNG_disableInterrupt(TRNG, DL_TRNG_INTERRUPT_HEALTH_FAIL_EVENT);
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+
+    // Transition to the NORM_FUNC state
+    // Wait for the IRQ_CMD_DONE flag to be set,
+    // which indicates function completion
+    // Small chance of INTERRUPT_CMD_FAIL being returned
+    DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_NORM_FUNC);
+    while (!DL_TRNG_isCommandDone(TRNG));
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_FAIL_EVENT);
+    DL_TRNG_enableInterrupt(TRNG, DL_TRNG_INTERRUPT_CMD_FAIL_EVENT);
+        
+    // Perform digital tests
+    DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_TEST_DIG);
+    while (!DL_TRNG_isCommandDone(TRNG));
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+    if (DL_TRNG_getDigitalHealthTestResults(TRNG) != DL_TRNG_DIGITAL_HEALTH_TEST_SUCCESS) return HSM_TRNG_ERR_DIG_TEST_FAIL;
+
+    // Perform analog tests
+    DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_TEST_ANA);
+    while (!DL_TRNG_isCommandDone(TRNG));
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+
+    // If the analog tests fail, it is recommended to perform this sequence
+    // If we fail the tests 3 times, the TRNG module CANNOT BE USED
+    if (DL_TRNG_getAnalogHealthTestResults(TRNG) != DL_TRNG_ANALOG_HEALTH_TEST_SUCCESS) {
+        for (uint8_t i = 0; i < 2; i++) {
+
+            // Clear health fail interrupt
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_HEALTH_FAIL_EVENT);
+            
+            // Disable power
+            DL_TRNG_disablePower(TRNG);
+            while(DL_TRNG_isPowerEnabled(TRNG));
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+
+            // Enable power again
+            DL_TRNG_enablePower(TRNG);
+            while(!DL_TRNG_isPowerEnabled(TRNG));
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+
+            // Repeat the startup sequence again
+            DL_TRNG_setClockDivider(TRNG, TRNG_CLOCK_DIVIDE);
+            DL_TRNG_disableInterrupt(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+            DL_TRNG_disableInterrupt(TRNG, DL_TRNG_INTERRUPT_CMD_FAIL_EVENT);
+            DL_TRNG_disableInterrupt(TRNG, DL_TRNG_INTERRUPT_HEALTH_FAIL_EVENT);
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+            DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_NORM_FUNC);
+            while (!DL_TRNG_isCommandDone(TRNG));
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_FAIL_EVENT);
+            DL_TRNG_enableInterrupt(TRNG, DL_TRNG_INTERRUPT_CMD_FAIL_EVENT);
+            DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_TEST_DIG);
+            while (!DL_TRNG_isCommandDone(TRNG));
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+            if (DL_TRNG_getDigitalHealthTestResults(TRNG) != DL_TRNG_DIGITAL_HEALTH_TEST_SUCCESS) return HSM_TRNG_ERR_DIG_TEST_FAIL;
+
+            // Perform analog tests
+            DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_TEST_ANA);
+            while (!DL_TRNG_isCommandDone(TRNG));
+            DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+            if (DL_TRNG_getAnalogHealthTestResults(TRNG) == DL_TRNG_ANALOG_HEALTH_TEST_SUCCESS) break;
+            
+            // Ran three times and still failed
+            if (i >= 1) return HSM_TRNG_ERR_ANA_TEST_FAIL;
+        }
+    }
+
+    // Clear capture ready status leftover from tests
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+
+    // Set the TRNG decimation rate
+    DL_TRNG_setDecimationRate(TRNG, TRNG_DECIMATION_RATE);
+
+    // Enable the remaining interrupts
+    DL_TRNG_enableInterrupt(TRNG, DL_TRNG_INTERRUPT_HEALTH_FAIL_EVENT);
+    DL_TRNG_enableInterrupt(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+
+    // Throw out the first capture received, this is left over due to tests and not random
+    DL_TRNG_sendCommand(TRNG, DL_TRNG_CMD_NORM_FUNC);
+    while (!DL_TRNG_isCommandDone(TRNG));
+    while (!DL_TRNG_isCaptureReady(TRNG));
+    (void) DL_TRNG_getCapture(TRNG);
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CMD_DONE_EVENT);
+    DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
+    
+    return HSM_TRNG_OK;
 }

@@ -7,8 +7,8 @@
  * Constants/stubs for the TRNG driver.
  */
 
-#ifndef _TRNG_H_
-#define _TRNG_H_
+#ifndef _HSM_TRNG_H_
+#define _HSM_TRNG_H_
 
 #include <stdint.h>
 #include <string.h>
@@ -21,22 +21,47 @@
 #define TRNG_64_BIT_BUF_SIZE 2
 #define TRNG_128_BIT_BUF_SIZE 4
 #define TRNG_256_BIT_BUF_SIZE 8
-#define TRNG_CLOCK_DIVIDE DL_TRNG_CLOCK_DIVIDE_8
-#define TRNG_DECIMATION_RATE DL_TRNG_DECIMATION_RATE_8
-#define TRNG_NUM_WARMUP_CYCLES 4
 
 /********************* FUNCTION STUBS *********************/
 
-// Populates a number buffer with 32-bit random number
-void trngGenerate32BitNumber(uint32_t *buf);
+/**
+ * @brief Writes random 32-bit numbers to buffer.
+ * 
+ * @param buf Buffer to store the TRNG output.
+ * @param len Number of TRNG captures to write to buf.
+ */
+void HSM_TRNG_generateNumber(uint32_t *buf, size_t len);
 
-// Populates a number buffer with 64-bit random number
-void trngGenerate64BitNumber(uint32_t *buf);
+/**
+ * @brief Populates a number buffer with 32-bit random number.
+ * 
+ * @param buf Buffer to store the TRNG output.
+ * @param len Size of buf.
+ */
+void HSM_TRNG_generate32BitNumber(uint32_t *buf, size_t len);
 
-// Populates a number buffer with 128-bit random number
-void trngGenerate128BitNumber(uint32_t *buf);
+/**
+ * @brief Populates a number buffer with 32-bit random number.
+ * 
+ * @param buf Buffer to store the TRNG output.
+ * @param len Size of buf.
+ */
+void HSM_TRNG_generate64BitNumber(uint32_t *buf, size_t len);
 
-// Populates a number buffer with 256-bit random number
-void trngGenerate256BitNumber(uint32_t *buf);
+/**
+ * @brief Populates a number buffer with 32-bit random number.
+ * 
+ * @param buf Buffer to store the TRNG output.
+ * @param len Size of buf.
+ */
+void HSM_TRNG_generate128BitNumber(uint32_t *buf, size_t len);
+
+/**
+ * @brief Populates a number buffer with 32-bit random number.
+ * 
+ * @param buf Buffer to store the TRNG output.
+ * @param len Size of buf.
+ */
+void HSM_TRNG_generate256BitNumber(uint32_t *buf, size_t len);
 
 #endif

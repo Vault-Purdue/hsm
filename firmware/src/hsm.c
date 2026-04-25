@@ -9,7 +9,8 @@
 #include "flash.h"
 #include <string.h>
 #include <stdint.h>
-#include "trng.h"
+#include "crypto_module_test.h"
+#include "crypto_module.h"
 #include "uart_protocol.h"
 #include "uart_cmd_router.h"
 #include "led_status.h"
@@ -21,6 +22,9 @@
 void init() {
     // Initialize all of the hardware components
     SYS_initPower();
+
+    // Initialize crypto module
+    HSM_CRYPTO_init();
     // TODO: Initialize file manager
     // init_fm();
 }
@@ -34,6 +38,17 @@ int main(void) {
     init();
     AESADV_init();
     uart_init();
+
+    // Set breakpoint if we fail crypto session test
+    if (!HSM_CRYPTOTEST_sessionTest()) {
+        __BKPT();
+    } else if (!HSM_CRYPTOTEST_fileKeyEncryptionTest()) {
+        __BKPT();
+    } else if (!HSM_CRYPTOTEST_messagePayloadEncryptionTest()) {
+        __BKPT();
+    }
+
+    __BKPT();
 
     if (AESADV_GCM_selfTest()) {
         STATUS_LED_ON(); 
