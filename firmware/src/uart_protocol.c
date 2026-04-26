@@ -86,6 +86,7 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
             rx_frame->payload_len = byte;
             if (rx_frame->payload_len > MAX_PAYLOAD) {
                 parserState = WAIT_START;
+                receiverIndex = 0;
                 return UART_RECV_ERROR_PAYLOAD_TOO_LONG;
             }
             receiverIndex = 0;
@@ -93,7 +94,6 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
             break;
         case READ_PAYLOAD:
             rx_frame->payload[receiverIndex++] = byte;
-
             if (receiverIndex >= rx_frame->payload_len) {
                 parserState = READ_CHECKSUM_H;
             }
@@ -138,6 +138,23 @@ int uart_receive_frame(uart_frame_t *rx_frame) {
                 return returnValue;
             }
         }
+    }
+}
+
+void handle_uart_error(int err_code) {
+    switch (err_code) {
+        case UART_RECV_ERROR_BAD_SOF:
+            uart_send_debug_msg("ERROR: Msg Bad SOF");
+            break;
+        case UART_RECV_ERROR_PAYLOAD_TOO_LONG:
+            uart_send_debug_msg("ERROR: Msg Bad Len");
+            break;
+        case UART_RECV_ERROR_BAD_CHECKSUM:
+            uart_send_debug_msg("ERROR: Msg Bad Checksum");
+            break;
+        default:
+            uart_send_debug_msg_with_error_code("ERROR: Failed to receive frame", err_code);
+            break;
     }
 }
 
@@ -198,6 +215,20 @@ void uart_send_debug_msg_with_error_code(const char *message, int errorCode) {
         }
 
         // MSG ID 0xFF for Debug Message
+        uart_send_frame(MSG_DEBUG, (uint8_t *)final_string, send_len);
+    }
+}
+
+void uart_send_debug_msg_with_str(const char *message, const char *value) {
+    char final_string[64];
+
+    int formatted_len = snprintf(final_string, sizeof(final_string),
+                                 "%s [%s]", message, value);
+    if (formatted_len > 0) {
+        uint16_t send_len = (uint16_t)formatted_len;
+        if (send_len > UART_MAX_PAYLOAD_LEN) {
+            send_len = UART_MAX_PAYLOAD_LEN;
+        }
         uart_send_frame(MSG_DEBUG, (uint8_t *)final_string, send_len);
     }
 }

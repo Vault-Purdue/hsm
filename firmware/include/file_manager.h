@@ -66,7 +66,7 @@ typedef enum {
       FM_ERROR_EXISTS
  } fm_status_t;
 
-router_status_t fm_file_transfer_request(uint8_t direction, uint16_t file_id);
+router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id);
 
 //TODO: Add descriptions
 fm_status_t init_fm(void);
