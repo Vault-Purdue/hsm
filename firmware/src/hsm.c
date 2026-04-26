@@ -23,6 +23,7 @@
 void init() {
     // Initialize all of the hardware components
     SYS_initPower();
+    GPIO_init();
     uart_init();
     // Initialize crypto module
     HSM_CRYPTO_init();
@@ -36,6 +37,7 @@ int main(void) {
 
     // Initialize device peripherals
     init();
+    STATUS_LED_ON();
 
 #if CRYPTO_TEST
     // Set breakpoint if we fail crypto session test
@@ -67,7 +69,7 @@ int main(void) {
             continue;
         }
 
-        STATUS_LED_OFF();
+        STATUS_LED_ON();// TODO:Remove in the final version
 
         router_status_t status = router_dispatch(&rx_frame);
         if (status == RT_FAIL) {
