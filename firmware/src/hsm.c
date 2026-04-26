@@ -15,6 +15,7 @@
 #include "led_status.h"
 #include "aes_adv_gcm_test.h"
 #include "aes_adv_gcm.h"
+#include "file_manager.h"
 
 /** @brief Initializes peripherals for system boot.
 */
@@ -76,6 +77,7 @@ int main(void) {
 
         /* Route by Message ID */
         switch (rx_frame.msg_id) {
+<<<<<<< Updated upstream
         case MSG_SESSION_OPEN:
             //handle_session_open(&rx_frame);
             break;
@@ -105,6 +107,45 @@ int main(void) {
         default:
             //print_debug("Unknown Message ID\n");
             break;
+=======
+            case MSG_SESSION_OPEN:
+                //handle_session_open(&rx_frame);
+                uart_send_debug_msg("Session Open message received.");
+                break;
+            case MSG_KEY_EXCHANGE:
+                //TODO: Decrypt payload (if necessary)
+                //handle_key_exchange(&rx_frame);
+                break;
+            case MSG_PIN_EXCHANGE:
+                //TODO: Decrypt payload (if necessary)
+                //handle_pin_exchange(&rx_frame);
+                break;  
+            case MSG_SESSION_CLOSE:
+                //handle_session_close(&rx_frame);
+                break;
+            case MSG_FILE_TRANSFER_REQUEST:
+                handle_file_transfer_request(&rx_frame);
+                break;
+            case MSG_FILE_CONTENTS:
+                //TODO: Decrypt payload (if necessary)
+                //handle_file_contents(&rx_frame);
+                break;
+            case MSG_FILE_TRANSFER_COMPLETE:
+                //handle_file_transfer_complete(&rx_frame);
+                break;
+            case MSG_FILE_REQUEST_ACK:
+                //handle_file_request_ack(&rx_frame);
+                break;
+            case MSG_FILE_TRANSFER_COMPLETE_ACK:
+                //handle_file_transfer_complet_ack(&rx_frame);
+                break;
+            case MSG_PIN_EXCHANGE_ACK:
+                //handle_pin_exchange_ack(&rx_frame);
+                break;
+            default:
+                //uart_send_debug_msg("Unknown Message ID\n");
+                break;
+>>>>>>> Stashed changes
         }
     }
 }

@@ -7,6 +7,7 @@
 
 #include "file_manager.h"
 #include "flash.h"
+#include "crypto_module.h"
 
 #define MAX_SLOTS  8   /* one sector = 8 slots of 128B */
 #define CRYPTO_AES_KEY_SIZE 128
@@ -220,16 +221,13 @@ fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size
     file.file_id      = file_id;
     file.payload_size = size;
 
-    trngGenerateNumber(iv_words, 3);
-    memcpy(file.iv, iv_words, sizeof(file.iv));
-
 #ifdef CRYPTO_ENABLE
     uint8_t dek[CRYPTO_AES_KEY_SIZE] = {0};
     if (fm_read_key(file_id, dek) != FM_OK) {
         return FM_ERROR_CRYPTO;
     }
 
-    crypto_status_t cstatus = crypto_gcm_encrypt(
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_encryptFile(
         dek,
         file.iv,
         &file_id,
@@ -242,7 +240,7 @@ fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size
 
     memset(dek, 0, sizeof(dek));
 
-    if (cstatus != CRYPTO_OK) {
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
@@ -285,7 +283,7 @@ fm_status_t fm_read_file(uint8_t file_id, uint8_t *out_buf)
         return FM_ERROR_CRYPTO;
     }
 
-    crypto_status_t cstatus = crypto_gcm_decrypt(
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_decryptFile(
         dek,
         file.iv,
         &file_id,
@@ -298,7 +296,7 @@ fm_status_t fm_read_file(uint8_t file_id, uint8_t *out_buf)
 
     memset(dek, 0, sizeof(dek));
 
-    if (cstatus != CRYPTO_OK) {
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
@@ -375,8 +373,6 @@ fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size)
     uint32_t      iv_words[3] = {0};
 
     key.file_id = file_id;
-    trngGenerateNumber(iv_words, 3);
-    memcpy(key.iv, iv_words, sizeof(key.iv));
 
 #ifdef CRYPTO_ENABLE
     if (km_get_kek(kek) != KM_OK) {
@@ -384,7 +380,7 @@ fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size)
         return FM_ERROR_CRYPTO;
     }
 
-    crypto_status_t cstatus = crypto_gcm_encrypt(
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_encryptFileKey(
         kek,
         key.iv,
         &file_id,
@@ -397,7 +393,7 @@ fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size)
 
     memset(kek, 0, sizeof(kek));
 
-    if (cstatus != CRYPTO_OK) {
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
@@ -441,7 +437,7 @@ fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek)
         return FM_ERROR_CRYPTO;
     }
 
-    crypto_status_t cstatus = crypto_gcm_decrypt(
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_decryptFileKey(
         kek,
         key.iv,
         &file_id,
@@ -454,7 +450,7 @@ fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek)
 
     memset(kek, 0, sizeof(kek));
 
-    if (cstatus != CRYPTO_OK) {
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
