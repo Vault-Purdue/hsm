@@ -7,6 +7,7 @@
 
 #include "uart_cmd_router.h"
 #include "file_manager.h"
+#include "state_machine.h"
 
 /************************ FUNCTIONS ***********************/
 router_status_t router_dispatch(uart_frame_t *rx_frame) {
@@ -14,10 +15,11 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
         uart_send_debug_msg("ERROR: Null frame in router");
         return RT_FAIL;
     }
-
+    __BKPT();
     switch (rx_frame->msg_id) {
         case MSG_SESSION_OPEN:
             // return handle_session_open(rx_frame);
+            system_state_machine(EVENT_SESSION_OPEN_USER);
             uart_send_debug_msg("Session Open message received.");
             return RT_OK;
 
@@ -62,6 +64,11 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             uart_send_debug_msg("PIN Exchange ACK received.");
             return RT_OK;
 
+        case MSG_CUR_STATE:
+            // return current state
+            uint16_t tempstate = system_state_machine(EVENT_NONE);
+            uart_send_frame(MSG_CUR_STATE,&tempstate,sizeof(tempstate));
+
         default:
             uart_send_debug_msg_with_str("ERROR: Unknown Message ID", msg_id_to_str(rx_frame->msg_id));
             return RT_FAIL;
@@ -80,6 +87,7 @@ const char* msg_id_to_str(uint8_t msg_id) {
         case MSG_FILE_REQUEST_ACK:           return "FILE_REQUEST_ACK";
         case MSG_FILE_TRANSFER_COMPLETE_ACK: return "FILE_TRANSFER_COMPLETE_ACK";
         case MSG_PIN_EXCHANGE_ACK:           return "PIN_EXCHANGE_ACK";
+        case MSG_CUR_STATE:                  return "CURRENT_STATE";
         case MSG_DEBUG:                      return "DEBUG";
         default:                             return "UNKNOWN";
     }

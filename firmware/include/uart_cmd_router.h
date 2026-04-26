@@ -25,6 +25,7 @@ typedef enum {
     MSG_FILE_REQUEST_ACK           = 0xF0,
     MSG_FILE_TRANSFER_COMPLETE_ACK = 0xF1,
     MSG_PIN_EXCHANGE_ACK           = 0xF2,
+    MSG_CUR_STATE                  = 0xC1,
     MSG_DEBUG                      = 0xFF
 } uart_msg_id_t;
 

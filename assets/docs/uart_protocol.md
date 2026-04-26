@@ -39,6 +39,7 @@ This field identifies the type of message the frame is, and thus how the payload
 | File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM |
 | File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | Both |
 | Pin Exchange ACK | 0xF2 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | 
+| Current State Request | 0xAA | No | The current state integer | 1B | Debug | Host (Debug)
 
 ## Payload Length
 

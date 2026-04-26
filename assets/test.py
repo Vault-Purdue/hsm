@@ -2,9 +2,10 @@ import serial
 
 ser = serial.Serial('COM4', 115200, timeout=10)  # Adjust COM port and baud rate as needed
 print("Serial port opened:", ser.name)
+# ser.open()
 
 while True:
-    userinput = input("Enter command (open,keyexchange,pinexchange,filetransferrequest,sessionclose,quit)\n>> ").strip().lower()
+    userinput = input("Enter command (open,state,keyexchange,pinexchange,filetransferrequest,sessionclose,quit)\n>> ").strip().lower()
     if userinput == "open":
         # OPEN SESSION 
         # start byte (0xAA), message type (0x01 for session open, payload length (1 byte), payload (variable length), CRC (2 bytes)
@@ -67,11 +68,19 @@ while True:
         ser.write(msg_file_transfer)  # Send the file transfer message to the MSP
         print("Sent file transfer:", ' '.join(f'{b:02X}' for b in msg_file_transfer))
 
+    elif userinput == "state":
+        # GET STATE
+        # start byte (0xAA), message type 0xC1 for get state, payload length (0 byte = 0x00), payload (0 bytes), CRC (2 bytes)
+        msg_get_state = bytes([0xAA,0xC1,0x00,0x00,0x00]) # full message, dummy crc
+        ser.write(msg_get_state)  # Send the get state message to the MSP
+        print("MSP State:", ' '.join(f'{b:02X}' for b in msg_get_state))
+
+
     elif userinput == "quit":
         print("Exiting...")
         break
     message = ser.readline()
     print("MSP response:", message)
-    message = ser.readline()
-    print("MSP response:", message)
+    #message = ser.readline()
+    #print("MSP response:", message)
 ser.close()

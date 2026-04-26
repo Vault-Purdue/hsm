@@ -60,6 +60,7 @@ int main(void) {
         }
     }
 #endif
+
     while (1) {
         int result = uart_receive_frame(&rx_frame);
         if (result != UART_RECV_FULL_FRAME_RECEIVED) {

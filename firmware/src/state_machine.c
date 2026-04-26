@@ -38,7 +38,19 @@ SystemState system_state_machine(SystemStateEvent event) {
         switch (event) {
             case EVENT_NONE:
                 break;
+            case EVENT_SESSION_OPEN_USER:
+                state = STATE_SESSION_OPENED;
+                break;
+            case EVENT_KEY_RECEIVED:
+                // if (STATE_SESSION_OPENED) {check and save key, return result};
+                // else {do nothing with the key, return error}
+                break;
+            case EVENT_PIN_RECEIVED:
+                // if (STATE_SESSION_OPENED && !INVALID_PIN) {state = STATE_UNLOCKED};
+                // else {EVENT_INVALID_PIN};
+                break;
             case EVENT_SESSION_CLOSE_USER:
+                state = STATE_LOCKED;
             case EVENT_SESSION_CLOSE_TIMEOUT:
                 DL_TimerG_stopCounter(TIMER_0_INST);
                 DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_0_INST_LOAD_VALUE);
