@@ -26,9 +26,9 @@ while True:
         # EXCHANGE PIN
         # start byte (0xAA), message type 0x03 for pin exchange, payload length (0x06=6 bytes), payload (6 bytes), CRC (2 bytes)
         msg_pin_exchangeheader = bytes([0xAA,0x03,0x06])
-        msg_pin_exchangepayload = bytes.fromhex('123456') # the default pin
+        msg_pin_exchangepayload = "123456" # the default pin
         msg_pin_crc = bytes([0x00,0x00]) # dummy crc
-        msg_pin_exchange = msg_pin_exchangeheader + msg_pin_exchangepayload + msg_pin_crc
+        msg_pin_exchange = msg_pin_exchangeheader + msg_pin_exchangepayload.encode() + msg_pin_crc
         ser.write(msg_pin_exchange)  # Send the pin exchange message to the MSP
         print("Sent pin exchange:", ' '.join(f'{b:02X}' for b in msg_pin_exchange))
     
