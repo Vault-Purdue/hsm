@@ -6,6 +6,7 @@
  */
 
 #include "uart_cmd_router.h"
+#include "file_manager.h"
 
 /************************ FUNCTIONS ***********************/
 router_status_t router_dispatch(uart_frame_t *rx_frame) {
@@ -93,7 +94,7 @@ router_status_t handle_file_transfer_request(uart_frame_t *frame) {
     uint8_t direction = frame->payload[0];
     uint8_t file_id   = frame->payload[1]; // 1B
 
-    if (direction != 0x77 && direction != 0x72) return RT_FAIL;
+    if (direction != FM_DIR_WRITE && direction != FM_DIR_READ) return RT_FAIL;
 
-    return fm_file_transfer_request(direction, (uint16_t)file_id);
+    return fm_file_transfer_request(direction, file_id);
 }
