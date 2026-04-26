@@ -40,9 +40,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             return handle_file_transfer_request(rx_frame);
 
         case MSG_FILE_CONTENTS:
-            // return handle_file_contents(rx_frame);
-            uart_send_debug_msg("File Contents message received.");
-            return RT_OK;
+            return handle_file_contents(rx_frame);
 
         case MSG_FILE_TRANSFER_COMPLETE:
             // return handle_file_transfer_complete(rx_frame);
@@ -97,4 +95,10 @@ router_status_t handle_file_transfer_request(uart_frame_t *frame) {
     if (direction != FM_DIR_WRITE && direction != FM_DIR_READ) return RT_FAIL;
 
     return fm_file_transfer_request(direction, file_id);
+}
+
+router_status_t handle_file_contents(uart_frame_t *frame) {
+    if (frame == NULL) return RT_FAIL;
+    if (frame->payload_len == 0 || frame->payload_len > FM_MAX_PAYLOAD_SIZE) return RT_FAIL;
+    return fm_handle_file_contents(frame->payload, frame->payload_len);
 }
