@@ -15,11 +15,17 @@
 #define PIN_LEN 6
 #define PIN_BUF_SIZE (PIN_LEN + 1)
 
+static struct {
+    bool active;
+    uint8_t direction;
+    uint8_t file_id;
+} fm_pending = {0};
+
 /************************ INTERNAL HELPERS ***********************/
 
 /** @brief Initialize File Manager
  *
- * Scans flash sectors and reports active file_ids over UART for debug.
+ * Scans flash sectors and reports active file_ids over UART for debug
  * No state is built in RAM — lookups remain lazy. This is purely
  * informational at boot time.
  *
@@ -48,7 +54,7 @@ fm_status_t init_fm(void)
 
 /** @brief Find Free File Slot
  *
- * Scans the file sector for a virgin slot (all 0xFF).
+ * Scans the file sector for a virgin slot (all 0xFF)
  *
  * @return slot index if found, FM_SLOT_NOT_FOUND otherwise
  */
@@ -66,7 +72,7 @@ static uint8_t fm_find_free_file_slot(void)
 
 /** @brief Find File Slot by ID
  *
- * Scans the file sector for a slot matching the given file_id.
+ * Scans the file sector for a slot matching the given file_id
  *
  * @param file_id logical file identifier to search for
  *
@@ -85,7 +91,7 @@ static uint8_t fm_find_file_slot_by_id(uint8_t file_id) {
 
 /** @brief Count Active File Slots
  *
- * Returns how many slots currently have status VALID_FILE.
+ * Returns how many slots currently have status VALID_FILE
  *
  * @return number of active files
  */
@@ -504,41 +510,55 @@ fm_status_t fm_write_pin(const char *pin) {
 
 router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id) {
     uint8_t ack_payload;
-    bool    failed = false;
-
-    uart_send_debug_msg_with_error_code("FM: dir", direction);
-    uart_send_debug_msg_with_error_code("FM: fid", file_id);
+    bool failed = false;
 
     if (direction == FM_DIR_READ) {
-        if (fm_find_file_slot_by_id(file_id) == FM_SLOT_NOT_FOUND) {
-            failed = true;
-            uart_send_debug_msg("FM: read - not found");
-        }
+        if (fm_find_file_slot_by_id(file_id) == FM_SLOT_NOT_FOUND) failed = true;
     } else if (direction == FM_DIR_WRITE) {
-        uint8_t found = fm_find_file_slot_by_id(file_id);
-        uint8_t count = fm_count_active_files();
-        uart_send_debug_msg_with_error_code("FM: found slot", found);
-        uart_send_debug_msg_with_error_code("FM: active count", count);
-
-        if (found != FM_SLOT_NOT_FOUND) {
-            failed = true;
-            uart_send_debug_msg("FM: write - already exists");
-        } else if (count >= MAX_SLOTS) {
-            failed = true;
-            uart_send_debug_msg("FM: write - full");
-        }
+        if (fm_find_file_slot_by_id(file_id) != FM_SLOT_NOT_FOUND) failed = true;
+        else if (fm_count_active_files() >= MAX_SLOTS) failed = true;
     } else {
         failed = true;
-        uart_send_debug_msg("FM: unknown direction");
     }
 
     if (failed) {
         ack_payload = 0x01;
         uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
+        fm_pending.active = false;
         return RT_FAIL;
     }
 
+    fm_pending.active    = true;
+    fm_pending.direction = direction;
+    fm_pending.file_id   = (uint8_t)file_id;
+
     ack_payload = 0x00;
     uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
+
+    if (direction == FM_DIR_READ) {
+        uint8_t buf[FM_MAX_PAYLOAD_SIZE] = {0};
+        if (fm_read_file(file_id, buf) == FM_OK) {
+            uart_send_frame(MSG_FILE_CONTENTS, buf, FM_MAX_PAYLOAD_SIZE);
+        }
+        fm_pending.active = false;
+    }
+
     return RT_OK;
+}
+
+router_status_t fm_handle_file_contents(const uint8_t *payload, uint8_t len) {
+    uint8_t ack;
+
+    if (!fm_pending.active || fm_pending.direction != FM_DIR_WRITE) {
+        ack = 0x01;
+        uart_send_frame(MSG_FILE_TRANSFER_COMPLETE_ACK, &ack, 1);
+        return RT_FAIL;
+    }
+
+    fm_status_t status = fm_write_file(fm_pending.file_id, payload, len);
+    fm_pending.active = false;
+
+    ack = (status == FM_OK) ? 0x00 : 0x01;
+    uart_send_frame(MSG_FILE_TRANSFER_COMPLETE_ACK, &ack, 1);
+    return (status == FM_OK) ? RT_OK : RT_FAIL;
 }

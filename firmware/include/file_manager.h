@@ -67,6 +67,7 @@ typedef enum {
  } fm_status_t;
 
 router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id);
+router_status_t fm_handle_file_contents(const uint8_t *payload, uint8_t len);
 
 //TODO: Add descriptions
 fm_status_t init_fm(void);
