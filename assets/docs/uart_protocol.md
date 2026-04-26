@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol - Version: 1.7
+# HSM UART Communication Protocol - Version: 1.8
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.
@@ -34,7 +34,7 @@ This field identifies the type of message the frame is, and thus how the payload
 | Key Exchange | 0x02 | No | Public Key | 32 | AUTH | Both |
 | PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host |
 | Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) |
-| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 2B File ID | 3 | READ/WRITE | Host |
+| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 1B File ID | 2 | READ/WRITE | Host |
 | File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both |
 | File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM |
 | File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | Both |
