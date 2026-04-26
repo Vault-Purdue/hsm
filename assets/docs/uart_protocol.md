@@ -37,7 +37,7 @@ This field identifies the type of message the frame is, and thus how the payload
 | File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 1B File ID | 2 | READ/WRITE | Host |
 | File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both |
 | File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM |
-| File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | Both |
+| File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | HSM |
 | Pin Exchange ACK | 0xF2 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | 
 
 ## Payload Length
