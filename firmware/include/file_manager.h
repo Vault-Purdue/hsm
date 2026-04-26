@@ -63,7 +63,8 @@ typedef enum {
       FM_SLOT_NOT_FOUND,
       FM_ERROR_FLASH,
       FM_ERROR_FULL,
-      FM_ERROR_EXISTS
+      FM_ERROR_EXISTS,
+      FM_ERROR_CRYPTO
  } fm_status_t;
 
 router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id);
