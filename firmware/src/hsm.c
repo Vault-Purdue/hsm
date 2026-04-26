@@ -71,7 +71,7 @@ int main(void) {
             result = uart_receive_frame(&rx_frame);
         }
         //STATUS_LED_OFF();
-        __BKPT();
+        //__BKPT();
         
         // Send a debug message if an error was encountered.
         // TOOD: Debug messaging will probably go away in the final version, so this should be handled in a different way?
@@ -98,7 +98,7 @@ int main(void) {
 
         uart_send_debug_msg("Frame successfully received.\n");
 
-        __BKPT();
+        //__BKPT();
         /* Route by Message ID */
         switch (rx_frame.msg_id) {
         case MSG_SESSION_OPEN:
@@ -113,20 +113,25 @@ int main(void) {
         case MSG_PIN_EXCHANGE:
             //TODO: Decrypt payload (if necessary)
             //handle_pin_exchange(&rx_frame);
+            uart_send_debug_msg("Received pin.\n");
             break;  
         case MSG_SESSION_CLOSE:
             //handle_session_close(&rx_frame);
+            uart_send_debug_msg("Session closed.\n");
             break;
         case MSG_FILE_TRANSFER_REQUEST:
             //handle_file_transfer_request(&rx_frame);
+            uart_send_debug_msg("File Transfer Requested.\n");
             break;
         case MSG_FILE_CONTENTS:
             //TODO: Decrypt payload (if necessary)
             //handle_file_contents(&rx_frame);
+            uart_send_debug_msg("File received\n");
             break;
         case MSG_FILE_TRANSFER_COMPLETE:
             //handle_file_transfer_complete(&rx_frame);
             break;
+        // *** Do these ACKs come from the host or are just sent by the HSM? ****
         case MSG_FILE_REQUEST_ACK:
             //handle_file_request_ack(&rx_frame);
             break;
