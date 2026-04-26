@@ -2,7 +2,6 @@ import serial
 
 ser = serial.Serial('COM4', 115200, timeout=10)  # Adjust COM port and baud rate as needed
 print("Serial port opened:", ser.name)
-#ser.open()
 
 while True:
     userinput = input("Enter command (open,keyexchange,pinexchange,filetransferrequest,sessionclose,quit)\n>> ").strip().lower()
