@@ -8,13 +8,43 @@
 #include "file_manager.h"
 #include "flash.h"
 #include "crypto_module.h"
+#include "uart_cmd_router.h"
+#include <stdbool.h>
 
 #define MAX_SLOTS  8   /* one sector = 8 slots of 128B */
-#define CRYPTO_AES_KEY_SIZE 128
 #define PIN_LEN 6
 #define PIN_BUF_SIZE (PIN_LEN + 1)
 
 /************************ INTERNAL HELPERS ***********************/
+
+/** @brief Initialize File Manager
+ *
+ * Scans flash sectors and reports active file_ids over UART for debug.
+ * No state is built in RAM — lookups remain lazy. This is purely
+ * informational at boot time.
+ *
+ * @return FM_OK always (informational only)
+ */
+fm_status_t init_fm(void)
+{
+    fm_layout slot = {0};
+    uint8_t active = 0;
+
+    uart_send_debug_msg("FM: Scanning file slots...");
+
+    for (uint8_t i = 0; i < MAX_SLOTS; i++) {
+        flash_read(FLASH_BASE_FILE + (i * FLASH_BLOCK_SIZE),
+                   &slot, sizeof(slot));
+
+        if (slot.status == VALID_FILE) {
+            uart_send_debug_msg_with_error_code("FM: Found file_id", slot.file_id);
+            active++;
+        }
+    }
+
+    uart_send_debug_msg_with_error_code("FM: Active files", active);
+    return FM_OK;
+}
 
 /** @brief Find Free File Slot
  *
@@ -42,8 +72,7 @@ static uint8_t fm_find_free_file_slot(void)
  *
  * @return slot index if found, FM_SLOT_NOT_FOUND otherwise
  */
-static uint8_t fm_find_file_slot_by_id(uint8_t file_id)
-{
+static uint8_t fm_find_file_slot_by_id(uint8_t file_id) {
     fm_layout slot = {0};
     for (uint8_t i = 0; i < MAX_SLOTS; i++) {
         flash_read(FLASH_BASE_FILE + (i * FLASH_BLOCK_SIZE), &slot, sizeof(slot));
@@ -195,8 +224,7 @@ static fm_status_t fm_crypto_erase_key_slot(uint8_t slot)
  *
  * @return FM_OK on success, error code otherwise
  */
-fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size)
-{
+fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size) {
     if (payload == NULL) {
         return FM_ERROR_NULL;
     }
@@ -472,4 +500,45 @@ fm_status_t fm_read_pin(char *pin_buffer, size_t buffer_size) {
 fm_status_t fm_write_pin(const char *pin) {
     (void)pin;
     return FM_OK;
+}
+
+router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id) {
+    uint8_t ack_payload;
+    bool    failed = false;
+
+    uart_send_debug_msg_with_error_code("FM: dir", direction);
+    uart_send_debug_msg_with_error_code("FM: fid", file_id);
+
+    if (direction == FM_DIR_READ) {
+        if (fm_find_file_slot_by_id(file_id) == FM_SLOT_NOT_FOUND) {
+            failed = true;
+            uart_send_debug_msg("FM: read - not found");
+        }
+    } else if (direction == FM_DIR_WRITE) {
+        uint8_t found = fm_find_file_slot_by_id(file_id);
+        uint8_t count = fm_count_active_files();
+        uart_send_debug_msg_with_error_code("FM: found slot", found);
+        uart_send_debug_msg_with_error_code("FM: active count", count);
+
+        if (found != FM_SLOT_NOT_FOUND) {
+            failed = true;
+            uart_send_debug_msg("FM: write - already exists");
+        } else if (count >= MAX_SLOTS) {
+            failed = true;
+            uart_send_debug_msg("FM: write - full");
+        }
+    } else {
+        failed = true;
+        uart_send_debug_msg("FM: unknown direction");
+    }
+
+    if (failed) {
+        ack_payload = 0x01;
+        uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
+        return RT_FAIL;
+    }
+
+    ack_payload = 0x00;
+    uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
+    return RT_OK;
 }
