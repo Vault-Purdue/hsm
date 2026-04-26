@@ -7,6 +7,9 @@
  * Frame structure, message IDs, and error codes for HSM-Host UART communication
  */
 
+#ifndef UART_PROTOCOL_H
+#define UART_PROTOCOL_H
+
 #include <stdint.h>
 
 #define UART_MAX_PAYLOAD_LEN  128
@@ -36,4 +39,10 @@ int uart_send_frame(uint8_t msg_id, uint8_t *writeBuffer, uint16_t write_length)
 
 void uart_send_debug_msg_with_error_code(const char *message, int errorCode);
 
+void uart_send_debug_msg_with_str(const char *message, const char *value);
+
 void uart_send_debug_msg(const char *message);
+
+void handle_uart_error(int err_code);
+
+#endif /* UART_PROTOCOL_H */

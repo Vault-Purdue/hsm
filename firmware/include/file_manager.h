@@ -6,8 +6,14 @@
  *
  * Wrapper functions for the file manager.
  */
+
+#ifndef FILE_MANAGER_H
+#define FILE_MANAGER_H
+
 #include <stdlib.h>
 #include <stdint.h>
+
+#include "uart_cmd_router.h"
 
 #define FLASH_BLOCK_SIZE  128
 #define FLASH_SECTOR_SIZE 1024
@@ -17,7 +23,8 @@
 // TODO: Define valid memory addresses
 #define FLASH_BASE_KEY    0x00010000 
 #define FLASH_BASE_FILE   0x00010400
-
+#define FM_DIR_WRITE 0x77
+#define FM_DIR_READ  0x72
 
 #define FM_MAX_PAYLOAD_SIZE 88
 
@@ -43,7 +50,7 @@ typedef struct __attribute__((packed, aligned(16))) {
     uint8_t  reserved2[60];
 } fm_key_layout;
 
- typedef enum {
+typedef enum {
       FM_ERROR,
       FM_OK,
       FM_WR_SUCESS,
@@ -59,14 +66,18 @@ typedef struct __attribute__((packed, aligned(16))) {
       FM_ERROR_EXISTS
  } fm_status_t;
 
+router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id);
+
 //TODO: Add descriptions
-fm_status_t fm_write_file(uint8_t file_id, const uint8_t* payload, uint16_t size);
+fm_status_t init_fm(void);
+fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size);
 fm_status_t fm_read_file(uint8_t file_id, uint8_t *out_buf);
 fm_status_t fm_delete_file(uint8_t file_id);
-
 fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size);
 fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek);
 
 // dummy functions
 fm_status_t fm_read_pin(char *pin_buffer, size_t buffer_size);
 fm_status_t fm_write_pin(const char *pin);
+
+#endif /* FILE_MANAGER_H */

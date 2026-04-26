@@ -16,6 +16,7 @@
 #include "led_status.h"
 #include "aes_adv_gcm_test.h"
 #include "aes_adv_gcm.h"
+#include "file_manager.h"
 
 /** @brief Initializes peripherals for system boot.
 */
@@ -26,8 +27,7 @@ void init() {
 
     // Initialize crypto module
     HSM_CRYPTO_init();
-    // TODO: Initialize file manager
-    // init_fm();
+    init_fm();
 }
 
 /************************MAIN LOOP ************************/
@@ -37,9 +37,8 @@ int main(void) {
 
     // Initialize device peripherals
     init();
-    AESADV_init();
-    uart_init();
 
+#if CRYPTO_TEST
     // Set breakpoint if we fail crypto session test
     if (!HSM_CRYPTOTEST_sessionTest()) {
         __BKPT();
@@ -61,6 +60,7 @@ int main(void) {
             delay_cycles(2000000);
         }
     }
+#endif
     while (1) {
         //print_debug("Ready\n");
         STATUS_LED_ON();
