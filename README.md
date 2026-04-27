@@ -17,3 +17,5 @@ Team Vault
 [Project Proposal - Overleaf](https://www.overleaf.com/project/69b8b071280502b021aa462a)
 
 [Project Checkin - Overleaf](https://www.overleaf.com/project/69dfa7902d6edb37580bfe4b)
+
+[Project Final Report - Overleaf](https://www.overleaf.com/project/69ea74669522967d3898dc74)
