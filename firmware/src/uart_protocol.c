@@ -90,7 +90,7 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
                 return UART_RECV_ERROR_PAYLOAD_TOO_LONG;
             }
             receiverIndex = 0;
-            parserState = READ_PAYLOAD;
+            parserState = (rx_frame->payload_len == 0) ? READ_CHECKSUM_H : READ_PAYLOAD;
             break;
         case READ_PAYLOAD:
             rx_frame->payload[receiverIndex++] = byte;
