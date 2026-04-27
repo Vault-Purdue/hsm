@@ -16,17 +16,18 @@
 #include "led_status.h"
 #include "aes_adv_gcm_test.h"
 #include "aes_adv_gcm.h"
+#include "file_manager.h"
 
 /** @brief Initializes peripherals for system boot.
 */
 void init() {
     // Initialize all of the hardware components
     SYS_initPower();
-
+    GPIO_init();
+    uart_init();
     // Initialize crypto module
     HSM_CRYPTO_init();
-    // TODO: Initialize file manager
-    // init_fm();
+    init_fm();
 }
 
 /************************MAIN LOOP ************************/
@@ -36,9 +37,9 @@ int main(void) {
 
     // Initialize device peripherals
     init();
-    AESADV_init();
-    uart_init();
+    STATUS_LED_ON();
 
+#if CRYPTO_TEST
     // Set breakpoint if we fail crypto session test
     if (!HSM_CRYPTOTEST_sessionTest()) {
         __BKPT();
@@ -60,81 +61,19 @@ int main(void) {
             delay_cycles(2000000);
         }
     }
+#endif
     while (1) {
-        //print_debug("Ready\n");
-        STATUS_LED_ON();
-        
-        // Block until a full frame is received
-        int result = 0;
-        while (result == UART_RECV_NO_ERROR) {
-            result = uart_receive_frame(&rx_frame);
-        }
-
-        // Send a debug message if an error was encountered.
-        // TOOD: Debug messaging will probably go away in the final version, so this should be handled in a different way?
+        int result = uart_receive_frame(&rx_frame);
         if (result != UART_RECV_FULL_FRAME_RECEIVED) {
-            STATUS_LED_OFF();
-            switch (result) {
-            case UART_RECV_ERROR_BAD_SOF:
-                uart_send_debug_msg("ERROR: Msg Bad SOF");
-                break;
-            case UART_RECV_ERROR_PAYLOAD_TOO_LONG:
-                uart_send_debug_msg("ERROR: Msg Bad Len");
-                break;
-            case UART_RECV_ERROR_BAD_CHECKSUM:
-                uart_send_debug_msg("ERROR: Msg Bad Checksum");
-                break;
-            default:
-                uart_send_debug_msg_with_error_code("ERROR: Failed to receive frame", result);
-                break;
-            }
+            handle_uart_error(result);
             continue;
         }
 
-        STATUS_LED_OFF();
+        STATUS_LED_ON();// TODO:Remove in the final version
 
-        uart_send_debug_msg("Frame successfully received.");
-
-
-        /* Route by Message ID */
-        switch (rx_frame.msg_id) {
-        case MSG_SESSION_OPEN:
-            //handle_session_open(&rx_frame);
-            uart_send_debug_msg("Session Open message received.");
-            break;
-        case MSG_KEY_EXCHANGE:
-            //TODO: Decrypt payload (if necessary)
-            //handle_key_exchange(&rx_frame);
-            break;
-        case MSG_PIN_EXCHANGE:
-            //TODO: Decrypt payload (if necessary)
-            //handle_pin_exchange(&rx_frame);
-            break;  
-        case MSG_SESSION_CLOSE:
-            //handle_session_close(&rx_frame);
-            break;
-        case MSG_FILE_TRANSFER_REQUEST:
-            //handle_file_transfer_request(&rx_frame);
-            break;
-        case MSG_FILE_CONTENTS:
-            //TODO: Decrypt payload (if necessary)
-            //handle_file_contents(&rx_frame);
-            break;
-        case MSG_FILE_TRANSFER_COMPLETE:
-            //handle_file_transfer_complete(&rx_frame);
-            break;
-        case MSG_FILE_REQUEST_ACK:
-            //handle_file_request_ack(&rx_frame);
-            break;
-        case MSG_FILE_TRANSFER_COMPLETE_ACK:
-            //handle_file_transfer_complet_ack(&rx_frame);
-            break;
-        case MSG_PIN_EXCHANGE_ACK:
-            //handle_pin_exchange_ack(&rx_frame);
-            break;
-        default:
-            //uart_send_debug_msg("Unknown Message ID\n");
-            break;
+        router_status_t status = router_dispatch(&rx_frame);
+        if (status == RT_FAIL) {
+            uart_send_debug_msg_with_str("ERROR: Router dispatch failed for msg_id", msg_id_to_str(rx_frame.msg_id));
         }
     }
 }
