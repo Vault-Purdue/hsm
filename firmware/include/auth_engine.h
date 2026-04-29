@@ -9,4 +9,4 @@
 
 /************************ FUNCTIONS ***********************/
 
-void authentication_engine(const char *provided_pin);
+void authentication_engine(uart_frame_t *rx_frame);

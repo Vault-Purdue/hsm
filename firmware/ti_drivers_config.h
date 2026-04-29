@@ -59,7 +59,7 @@
 #define TIMER_0_INST                                                    (TIMG12)
 #define TIMER_0_INST_IRQHandler                                TIMG12_IRQHandler
 #define TIMER_0_INST_INT_IRQN                                  (TIMG12_INT_IRQn)
-#define TIMER_0_INST_LOAD_VALUE                                      (39999999U) // (1199999999U)
+#define TIMER_0_INST_LOAD_VALUE                                    (1199999999U) // (79999999U) = 20 sec
 
 /* Defines for TIMER_1 (PIN Backoff) */
 #define TIMER_1_INST                                                     (TIMG8)

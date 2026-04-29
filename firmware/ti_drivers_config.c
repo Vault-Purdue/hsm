@@ -120,7 +120,7 @@ void SYS_initPower(void)
 void GPIO_init(void)
 {
     DL_GPIO_initDigitalOutput(GPIO_RED_LED_IOMUX);
-    DL_GPIO_clearPins(GPIOA, GPIO_RED_LED_PIN);
+    DL_GPIO_setPins(GPIOA, GPIO_RED_LED_PIN);
     DL_GPIO_enableOutput(GPIOA, GPIO_RED_LED_PIN);
 }
 /*

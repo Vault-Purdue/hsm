@@ -12,8 +12,8 @@
 #include <stdbool.h>
 
 #define MAX_SLOTS  8   /* one sector = 8 slots of 128B */
-#define PIN_LEN 6
-#define PIN_BUF_SIZE (PIN_LEN + 1)
+#define CRYPTO_AES_KEY_SIZE 128
+//#define PIN_BUF_SIZE (PIN_LEN + 1)
 
 static struct {
     bool active;
@@ -513,12 +513,19 @@ fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek)
     return FM_OK;
 }
 
-fm_status_t fm_read_pin(char *pin_buffer, size_t buffer_size) {
-    if (pin_buffer == NULL || buffer_size != PIN_BUF_SIZE) {
+fm_status_t fm_read_pin(unsigned char *pin_buffer, size_t buffer_size) {
+    const unsigned char expected_pin[32] = {
+        0x3D, 0xC1, 0x71, 0x7E, 0x8E, 0xD8, 0x20, 0x92, 
+        0x1E, 0xE4, 0x79, 0x42, 0x32, 0xEB, 0x11, 0xD6, 
+        0x1C, 0x2E, 0x5C, 0xE7, 0xDE, 0xCC, 0xF7, 0xC5, 
+        0xD6, 0x99, 0xC8, 0x2B, 0xE2, 0x4F, 0x8B, 0x79
+    };
+
+    if (pin_buffer == NULL || buffer_size != 32) {
         return FM_ERROR;
     }
 
-    memcpy(pin_buffer, "123456", PIN_BUF_SIZE);
+    memcpy(pin_buffer, expected_pin, 32);
     return FM_OK;
 }
 

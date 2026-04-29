@@ -53,6 +53,7 @@ SystemState system_state_machine(SystemStateEvent event) {
                 invalid_pin_count = 0;
                 break;
             case EVENT_CMD_RECEIVED:
+                //__BKPT();
                 if (state == STATE_UNLOCKED) {
                     DL_TimerG_stopCounter(TIMER_0_INST);
                     DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_0_INST_LOAD_VALUE);
@@ -74,7 +75,7 @@ SystemState system_state_machine(SystemStateEvent event) {
                 break;
             case EVENT_HOLDOFF_EXPIRED:
                 DL_TimerG_stopCounter(TIMER_1_INST);
-                DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_1_INST_LOAD_VALUE);
+                DL_TimerG_setTimerCount(TIMER_1_INST, TIMER_1_INST_LOAD_VALUE);
                 state = STATE_LOCKED;
         }
         return state;

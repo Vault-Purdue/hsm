@@ -28,6 +28,8 @@
 
 #define FM_MAX_PAYLOAD_SIZE 88
 
+#define PIN_LEN 6
+
 /* Blocks Layout, 128-byte aligned*/
 typedef struct __attribute__((packed, aligned(16))) {
     uint32_t status;
@@ -79,7 +81,5 @@ fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size);
 fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek);
 
 // dummy functions
-fm_status_t fm_read_pin(char *pin_buffer, size_t buffer_size);
+fm_status_t fm_read_pin(unsigned char *pin_buffer, size_t buffer_size);
 fm_status_t fm_write_pin(const char *pin);
-
-#endif /* FILE_MANAGER_H */
