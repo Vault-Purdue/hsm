@@ -7,16 +7,54 @@
 
 #include "file_manager.h"
 #include "flash.h"
+#include "crypto_module.h"
+#include "uart_cmd_router.h"
+#include <stdbool.h>
 
 #define MAX_SLOTS  8   /* one sector = 8 slots of 128B */
 #define CRYPTO_AES_KEY_SIZE 128
 //#define PIN_BUF_SIZE (PIN_LEN + 1)
 
+static struct {
+    bool active;
+    uint8_t direction;
+    uint8_t file_id;
+} fm_pending = {0};
+
 /************************ INTERNAL HELPERS ***********************/
+
+/** @brief Initialize File Manager
+ *
+ * Scans flash sectors and reports active file_ids over UART for debug
+ * No state is built in RAM — lookups remain lazy. This is purely
+ * informational at boot time.
+ *
+ * @return FM_OK always (informational only)
+ */
+fm_status_t init_fm(void)
+{
+    fm_layout slot = {0};
+    uint8_t active = 0;
+
+    uart_send_debug_msg("FM: Scanning file slots...");
+
+    for (uint8_t i = 0; i < MAX_SLOTS; i++) {
+        flash_read(FLASH_BASE_FILE + (i * FLASH_BLOCK_SIZE),
+                   &slot, sizeof(slot));
+
+        if (slot.status == VALID_FILE) {
+            uart_send_debug_msg_with_error_code("FM: Found file_id", slot.file_id);
+            active++;
+        }
+    }
+
+    uart_send_debug_msg_with_error_code("FM: Active files", active);
+    return FM_OK;
+}
 
 /** @brief Find Free File Slot
  *
- * Scans the file sector for a virgin slot (all 0xFF).
+ * Scans the file sector for a virgin slot (all 0xFF)
  *
  * @return slot index if found, FM_SLOT_NOT_FOUND otherwise
  */
@@ -34,14 +72,13 @@ static uint8_t fm_find_free_file_slot(void)
 
 /** @brief Find File Slot by ID
  *
- * Scans the file sector for a slot matching the given file_id.
+ * Scans the file sector for a slot matching the given file_id
  *
  * @param file_id logical file identifier to search for
  *
  * @return slot index if found, FM_SLOT_NOT_FOUND otherwise
  */
-static uint8_t fm_find_file_slot_by_id(uint8_t file_id)
-{
+static uint8_t fm_find_file_slot_by_id(uint8_t file_id) {
     fm_layout slot = {0};
     for (uint8_t i = 0; i < MAX_SLOTS; i++) {
         flash_read(FLASH_BASE_FILE + (i * FLASH_BLOCK_SIZE), &slot, sizeof(slot));
@@ -54,7 +91,7 @@ static uint8_t fm_find_file_slot_by_id(uint8_t file_id)
 
 /** @brief Count Active File Slots
  *
- * Returns how many slots currently have status VALID_FILE.
+ * Returns how many slots currently have status VALID_FILE
  *
  * @return number of active files
  */
@@ -183,9 +220,9 @@ static fm_status_t fm_crypto_erase_key_slot(uint8_t slot)
 /** @brief Write File
  *
  * Encrypts and writes a file payload to the next available slot.
- * The corresponding DEK must already exist in the key sector before
- * calling this function. Rejects if file_id already exists or if
- * the sector is at maximum capacity (8 active files).
+ * When CRYPTO_ENABLE is defined, generates a DEK internally, encrypts
+ * the file, and stores the encrypted DEK in the key sector automatically
+ * Rejects if file_id already exists or if the sector is at maximum capacity
  *
  * @param file_id logical file identifier
  * @param payload pointer to plaintext data to encrypt and store
@@ -193,8 +230,7 @@ static fm_status_t fm_crypto_erase_key_slot(uint8_t slot)
  *
  * @return FM_OK on success, error code otherwise
  */
-fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size)
-{
+fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size) {
     if (payload == NULL) {
         return FM_ERROR_NULL;
     }
@@ -213,36 +249,58 @@ fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size
         return FM_ERROR_FULL;
     }
 
-    fm_layout file    = {0};
-    uint32_t  iv_words[3] = {0};
+    fm_layout file = {0};
 
     file.file_id      = file_id;
     file.payload_size = size;
 
-    trngGenerateNumber(iv_words, 3);
-    memcpy(file.iv, iv_words, sizeof(file.iv));
-
 #ifdef CRYPTO_ENABLE
-    uint8_t dek[CRYPTO_AES_KEY_SIZE] = {0};
-    if (fm_read_key(file_id, dek) != FM_OK) {
+    uint8_t dek[CRYPTO_AES_KEY_SIZE]= {0};
+    uint8_t enc_dek[CRYPTO_AES_KEY_SIZE] = {0};
+    uint8_t key_iv[CRYPTO_GCM_IV_SIZE] = {0};
+    uint8_t key_at[CRYPTO_GCM_TAG_SIZE] = {0};
+
+    /* Generates DEK and IV internally, encrypts file payload */
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_encryptFile(
+        dek,           CRYPTO_AES_KEY_SIZE,
+        file.iv,       CRYPTO_GCM_IV_SIZE,
+        file.auth_tag, CRYPTO_GCM_TAG_SIZE,
+        payload,
+        file.payload,
+        size
+    );
+    if (cstatus != HSM_CRYPTO_OK) {
+        memset(dek, 0, sizeof(dek));
         return FM_ERROR_CRYPTO;
     }
 
-    crypto_status_t cstatus = crypto_gcm_encrypt(
-        dek,
-        file.iv,
-        &file_id,
-        sizeof(file_id),
-        payload,
-        size,
-        file.payload,
-        file.auth_tag
+    /* Encrypt the DEK with the root key (handled internally by crypto module) */
+    cstatus = HSM_CRYPTO_encryptFileKey(
+        dek,    enc_dek, CRYPTO_AES_KEY_SIZE,
+        key_iv, CRYPTO_GCM_IV_SIZE,
+        key_at, CRYPTO_GCM_TAG_SIZE
     );
-
-    memset(dek, 0, sizeof(dek));
-
-    if (cstatus != CRYPTO_OK) {
+    memset(dek, 0, sizeof(dek));   /* clear DEK from RAM immediately */
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
+    }
+
+    /* Store the encrypted DEK in the key sector */
+    uint8_t kslot = fm_find_free_key_slot();
+    if (kslot == FM_SLOT_NOT_FOUND) {
+        return FM_ERROR_FULL;
+    }
+
+    fm_key_layout key_entry = {0};
+    key_entry.file_id = file_id;
+    key_entry.status  = VALID_KEY;
+    memcpy(key_entry.encrypted_dek, enc_dek, CRYPTO_AES_KEY_SIZE);
+    memcpy(key_entry.iv,            key_iv,  CRYPTO_GCM_IV_SIZE);
+    memcpy(key_entry.auth_tag,      key_at,  CRYPTO_GCM_TAG_SIZE);
+
+    if (!flash_write(FLASH_BASE_KEY + (kslot * FLASH_BLOCK_SIZE),
+                     &key_entry, sizeof(fm_key_layout))) {
+        return FM_ERROR_FLASH;
     }
 #else
     memcpy(file.payload, payload, size);
@@ -257,6 +315,8 @@ fm_status_t fm_write_file(uint8_t file_id, const uint8_t *payload, uint16_t size
 /** @brief Read File
  *
  * Reads and decrypts a file payload into the provided output buffer
+ * When CRYPTO_ENABLE is defined, retrieves and decrypts the DEK from
+ * the key sector, then decrypts the file payload
  * Caller must provide a buffer of at least 88 bytes
  *
  * @param file_id logical file identifier to read
@@ -279,25 +339,38 @@ fm_status_t fm_read_file(uint8_t file_id, uint8_t *out_buf)
     flash_read(FLASH_BASE_FILE + (slot * FLASH_BLOCK_SIZE), &file, sizeof(file));
 
 #ifdef CRYPTO_ENABLE
+    /* Load the key slot for this file */
+    uint8_t kslot = fm_find_key_slot_by_id(file_id);
+    if (kslot == FM_SLOT_NOT_FOUND) {
+        return FM_ERROR_NOT_FOUND;
+    }
+
+    fm_key_layout key_entry = {0};
+    flash_read(FLASH_BASE_KEY + (kslot * FLASH_BLOCK_SIZE), &key_entry, sizeof(key_entry));
+
+    /* Decrypt the DEK using the root key (handled internally by crypto module) */
     uint8_t dek[CRYPTO_AES_KEY_SIZE] = {0};
-    if (fm_read_key(file_id, dek) != FM_OK) {
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_decryptFileKey(
+        key_entry.encrypted_dek, dek, CRYPTO_AES_KEY_SIZE,
+        key_entry.iv,            CRYPTO_GCM_IV_SIZE,
+        key_entry.auth_tag,      CRYPTO_GCM_TAG_SIZE
+    );
+    if (cstatus != HSM_CRYPTO_OK) {
+        memset(dek, 0, sizeof(dek));
         return FM_ERROR_CRYPTO;
     }
 
-    crypto_status_t cstatus = crypto_gcm_decrypt(
-        dek,
-        file.iv,
-        &file_id,
-        sizeof(file_id),
+    /* Decrypt the file payload using the DEK */
+    cstatus = HSM_CRYPTO_decryptFile(
+        dek,           CRYPTO_AES_KEY_SIZE,
+        file.iv,       CRYPTO_GCM_IV_SIZE,
+        file.auth_tag, CRYPTO_GCM_TAG_SIZE,
         file.payload,
-        sizeof(file.payload),
         out_buf,
-        file.auth_tag
+        sizeof(file.payload)
     );
-
-    memset(dek, 0, sizeof(dek));
-
-    if (cstatus != CRYPTO_OK) {
+    memset(dek, 0, sizeof(dek));   /* clear DEK from RAM immediately */
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
@@ -330,7 +403,7 @@ fm_status_t fm_delete_file(uint8_t file_id)
         return status;
     }
 
-    /* destroy key — if missing, file is already gone so still return OK */
+    /* destroy key if missing, file is already gone so still return OK */
     uint8_t key_slot = fm_find_key_slot_by_id(file_id);
     if (key_slot != FM_SLOT_NOT_FOUND) {
         status = fm_crypto_erase_key_slot(key_slot);
@@ -343,8 +416,9 @@ fm_status_t fm_delete_file(uint8_t file_id)
 
 /** @brief Write Key
  *
- * Encrypts a DEK with the KEK and stores it in the next available key slot.
- * Must be called before fm_write_file for the same file_id.
+ * Encrypts a DEK with the root key and stores it in the next available key slot.
+ * Note: in normal write flow this is handled internally by fm_write_file.
+ * This function is exposed for manual provisioning use cases.
  *
  * @param file_id logical file identifier this key belongs to
  * @param dek pointer to plaintext DEK (must be CRYPTO_AES_KEY_SIZE bytes)
@@ -369,34 +443,23 @@ fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size)
         return FM_ERROR_FULL;
     }
 
-    fm_key_layout key     = {0};
-    uint8_t       kek[CRYPTO_AES_KEY_SIZE] = {0};
-    uint32_t      iv_words[3] = {0};
+    fm_key_layout key = {0};
 
     key.file_id = file_id;
-    trngGenerateNumber(iv_words, 3);
-    memcpy(key.iv, iv_words, sizeof(key.iv));
 
 #ifdef CRYPTO_ENABLE
-    if (km_get_kek(kek) != KM_OK) {
-        memset(kek, 0, sizeof(kek));
-        return FM_ERROR_CRYPTO;
-    }
-
-    crypto_status_t cstatus = crypto_gcm_encrypt(
-        kek,
-        key.iv,
-        &file_id,
-        sizeof(file_id),
+    /* KEK is handled internally by crypto module */
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_encryptFileKey(
         dek,
-        size,
-        key.encrypted_dek,
-        key.auth_tag
+        key.encrypted_dek, 
+        CRYPTO_AES_KEY_SIZE,
+        key.iv,            
+        CRYPTO_GCM_IV_SIZE,
+        key.auth_tag,      
+        CRYPTO_GCM_TAG_SIZE
     );
 
-    memset(kek, 0, sizeof(kek));
-
-    if (cstatus != CRYPTO_OK) {
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
@@ -412,7 +475,6 @@ fm_status_t fm_write_key(uint8_t file_id, const uint8_t *dek, uint16_t size)
 /** @brief Read Key
  *
  * Reads and decrypts a DEK from the key sector into the output buffer.
- * Typically called internally by fm_read_file and fm_write_file.
  *
  * @param file_id logical file identifier whose key to read
  * @param out_dek pointer to output buffer (must be CRYPTO_AES_KEY_SIZE bytes)
@@ -434,26 +496,14 @@ fm_status_t fm_read_key(uint8_t file_id, uint8_t *out_dek)
     flash_read(FLASH_BASE_KEY + (slot * FLASH_BLOCK_SIZE), &key, sizeof(key));
 
 #ifdef CRYPTO_ENABLE
-    uint8_t kek[CRYPTO_AES_KEY_SIZE] = {0};
-    if (km_get_kek(kek) != KM_OK) {
-        memset(kek, 0, sizeof(kek));
-        return FM_ERROR_CRYPTO;
-    }
-
-    crypto_status_t cstatus = crypto_gcm_decrypt(
-        kek,
-        key.iv,
-        &file_id,
-        sizeof(file_id),
-        key.encrypted_dek,
-        CRYPTO_AES_KEY_SIZE,
-        out_dek,
-        key.auth_tag
+    /* KEK is handled internally by crypto module */
+    HSM_CRYPTO_STATUS cstatus = HSM_CRYPTO_decryptFileKey(
+        key.encrypted_dek, out_dek, CRYPTO_AES_KEY_SIZE,
+        key.iv,            CRYPTO_GCM_IV_SIZE,
+        key.auth_tag,      CRYPTO_GCM_TAG_SIZE
     );
 
-    memset(kek, 0, sizeof(kek));
-
-    if (cstatus != CRYPTO_OK) {
+    if (cstatus != HSM_CRYPTO_OK) {
         return FM_ERROR_CRYPTO;
     }
 #else
@@ -482,4 +532,59 @@ fm_status_t fm_read_pin(unsigned char *pin_buffer, size_t buffer_size) {
 fm_status_t fm_write_pin(const char *pin) {
     (void)pin;
     return FM_OK;
+}
+
+router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id) {
+    uint8_t ack_payload;
+    bool failed = false;
+
+    if (direction == FM_DIR_READ) {
+        if (fm_find_file_slot_by_id(file_id) == FM_SLOT_NOT_FOUND) failed = true;
+    } else if (direction == FM_DIR_WRITE) {
+        if (fm_find_file_slot_by_id(file_id) != FM_SLOT_NOT_FOUND) failed = true;
+        else if (fm_count_active_files() >= MAX_SLOTS) failed = true;
+    } else {
+        failed = true;
+    }
+
+    if (failed) {
+        ack_payload = 0x01;
+        uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
+        fm_pending.active = false;
+        return RT_FAIL;
+    }
+
+    fm_pending.active    = true;
+    fm_pending.direction = direction;
+    fm_pending.file_id   = (uint8_t)file_id;
+
+    ack_payload = 0x00;
+    uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
+
+    if (direction == FM_DIR_READ) {
+        uint8_t buf[FM_MAX_PAYLOAD_SIZE] = {0};
+        if (fm_read_file(file_id, buf) == FM_OK) {
+            uart_send_frame(MSG_FILE_CONTENTS, buf, FM_MAX_PAYLOAD_SIZE);
+        }
+        fm_pending.active = false;
+    }
+
+    return RT_OK;
+}
+
+router_status_t fm_handle_file_contents(const uint8_t *payload, uint8_t len) {
+    uint8_t ack;
+
+    if (!fm_pending.active || fm_pending.direction != FM_DIR_WRITE) {
+        ack = 0x01;
+        uart_send_frame(MSG_FILE_TRANSFER_COMPLETE_ACK, &ack, 1);
+        return RT_FAIL;
+    }
+
+    fm_status_t status = fm_write_file(fm_pending.file_id, payload, len);
+    fm_pending.active = false;
+
+    ack = (status == FM_OK) ? 0x00 : 0x01;
+    uart_send_frame(MSG_FILE_TRANSFER_COMPLETE_ACK, &ack, 1);
+    return (status == FM_OK) ? RT_OK : RT_FAIL;
 }
