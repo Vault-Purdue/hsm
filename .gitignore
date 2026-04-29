@@ -1,0 +1,10 @@
+Debug/
+.theia/
+.clangd/
+.cache/
+*.o
+*.d
+*.bin
+*.out
+*.map
+*.opt

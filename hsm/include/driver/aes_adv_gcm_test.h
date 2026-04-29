@@ -1,0 +1,1 @@
+bool AESADV_GCM_selfTest(void);
