@@ -75,7 +75,7 @@ SystemState system_state_machine(SystemStateEvent event) {
                 break;
             case EVENT_HOLDOFF_EXPIRED:
                 DL_TimerG_stopCounter(TIMER_1_INST);
-                DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_1_INST_LOAD_VALUE);
+                DL_TimerG_setTimerCount(TIMER_1_INST, TIMER_1_INST_LOAD_VALUE);
                 state = STATE_LOCKED;
         }
         return state;
