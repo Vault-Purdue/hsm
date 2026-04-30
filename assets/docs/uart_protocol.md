@@ -28,17 +28,17 @@ Because all frames also have a Payload Length field, an End of Frame indicator w
 
 This field identifies the type of message the frame is, and thus how the payload should be interpreted or routed. Possible Message ID values are as follows:
 
-| Message Type | Byte Value | Is Payload Encrypted? | Payload Content | Payload Length (bytes) | Relevant Host Command | Sender |
-| --- | --- | --- | --- | --- | --- | --- |
-| Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Host | 
-| Key Exchange | 0x02 | No | Public Key | 32 | AUTH | Both |
-| PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host |
-| Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) |
-| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 1B File ID | 2 | READ/WRITE | Host |
-| File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both |
-| File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM |
-| File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | HSM |
-| Pin Exchange ACK | 0xF2 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | 
+| Message Type | Byte Value | Is Payload Encrypted? | Payload Content | Payload Length (bytes) | Relevant Host Command | Sender | Routing Criteria
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Host | state == WAIT_FOR_UART |
+| Key Exchange | 0x02 | No | Public Key | 32 | AUTH | Both | state == WAIT_FOR_UART |
+| PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host | state == WAIT_FOR_PIN |
+| Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) | any state |
+| File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 1B File ID | 2 | READ/WRITE | Host | state == UNLOCKED |
+| File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both | state == UNLOCKED |
+| File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM | N/A |
+| File Transfer Complete ACK | 0xF1 | No | `0x00`: checksum OK, `0x01`: mismatch | 1 | READ/WRITE | HSM | N/A |
+| Pin Exchange ACK | 0xF2 | Yes | `0x00`: success, `0x01`: fail (lockout failure code?) | 1 | AUTH | HSM | N/A |
 
 ## Payload Length
 
