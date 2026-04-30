@@ -59,7 +59,7 @@
 #define TIMER_0_INST                                                    (TIMG12)
 #define TIMER_0_INST_IRQHandler                                TIMG12_IRQHandler
 #define TIMER_0_INST_INT_IRQN                                  (TIMG12_INT_IRQn)
-#define TIMER_0_INST_LOAD_VALUE                                    (1199999999U) // (79999999U) = 20 sec
+#define TIMER_0_INST_LOAD_VALUE                                      (1199999999U) // (1199999999U)
 
 /* Defines for TIMER_1 (PIN Backoff) */
 #define TIMER_1_INST                                                     (TIMG8)
@@ -76,6 +76,10 @@ typedef enum {
     HSM_TRNG_ERR_ANA_TEST_FAIL
 } HSM_TRNG_STATUS;
 
+/* Defines for LCD */
+#define LCD_IRQHandler                                            LCD_IRQHandler
+#define LCD_INT_IRQN                                                LCD_INT_IRQn
+
 extern const uint_least8_t CONFIG_UART_0;
 extern const uint_least8_t UART_count;
 
@@ -86,6 +90,7 @@ uint8_t txBuffer[CONFIG_UART_BUFFER_LENGTH];
 void SYS_initPower(void);
 void UART1_IRQHandler(void);
 void GPIO_init(void);
+void LCD_init(void);
 void TIMER_0_init(void);
 void TIMER_1_init(void);
 

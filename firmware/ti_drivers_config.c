@@ -99,6 +99,7 @@ void SYS_initPower(void)
     DL_GPIO_reset(GPIOA);
     DL_GPIO_reset(GPIOB);
     DL_GPIO_reset(GPIOC);
+    DL_LCD_reset(LCD);
     DL_TimerG_reset(TIMER_0_INST);
     DL_TimerG_reset(TIMER_1_INST);
     DL_TRNG_reset(TRNG);
@@ -106,6 +107,7 @@ void SYS_initPower(void)
     DL_GPIO_enablePower(GPIOA);
     DL_GPIO_enablePower(GPIOB);
     DL_GPIO_enablePower(GPIOC);
+    DL_LCD_enablePower(LCD);
     DL_TimerG_enablePower(TIMER_0_INST);
     DL_TimerG_enablePower(TIMER_1_INST);
     DL_TRNG_enablePower(TRNG);
@@ -289,4 +291,58 @@ HSM_TRNG_STATUS HSM_TRNG_init(void) {
     DL_TRNG_clearInterruptStatus(TRNG, DL_TRNG_INTERRUPT_CAPTURE_RDY_EVENT);
     
     return HSM_TRNG_OK;
+}
+
+/*
+ *  =============================== LCD ===============================
+ */
+static const DL_LCD_Config gLCDConfig = {
+    .frequencyDivider   = DL_LCD_FREQ_DIVIDE_4,
+    .muxRate            = DL_LCD_MUX_RATE_4,
+    .lowPowerWaveform   = DL_LCD_WAVEFORM_POWERMODE_STANDARD
+};
+
+void LCD_init(void)
+{
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_24);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_42);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_43);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_44);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_58);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_57);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_56);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_55);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_36);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_37);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_38);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_18);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_19);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_20);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_23);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_39);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_40);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_41);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_54);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_53);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_52);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_51);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_50);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_49);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_48);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_47);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_46);
+    DL_LCD_setPinAsLCDFunction(LCD, DL_LCD_SEGMENT_LINE_45);
+    DL_LCD_init(LCD, (DL_LCD_Config *) &gLCDConfig);
+    DL_LCD_turnSegmentsOn(LCD);
+    DL_LCD_setBiasVoltageSource(LCD, DL_LCD_BIAS_VOLTAGE_SOURCE_AVDD);
+    DL_LCD_setR33source(LCD, DL_LCD_R33_SOURCE_EXTERNAL);
+    DL_LCD_enableInternalBias(LCD);
+    DL_LCD_setInternalBiasPowerMode(LCD, DL_LCD_POWER_MODE_LOW);
+
+    DL_LCD_clearAllMemoryRegs(LCD);
+    DL_LCD_setPinAsCommon(LCD, DL_LCD_SEGMENT_LINE_24, DL_LCD_COM_0);
+    DL_LCD_setPinAsCommon(LCD, DL_LCD_SEGMENT_LINE_42, DL_LCD_COM_1);
+    DL_LCD_setPinAsCommon(LCD, DL_LCD_SEGMENT_LINE_43, DL_LCD_COM_2);
+    DL_LCD_setPinAsCommon(LCD, DL_LCD_SEGMENT_LINE_44, DL_LCD_COM_3);
+    DL_LCD_enable(LCD);
 }

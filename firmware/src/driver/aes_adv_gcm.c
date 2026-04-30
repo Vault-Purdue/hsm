@@ -24,12 +24,15 @@ static __attribute__((aligned(4))) uint8_t iv128[16] = {
 
 // Temporary placement for master root key
 // TODO: remove this and every mention of it in the file when CSC is implemented
+
+/*
 static uint8_t root_key[32] = {
     0x26, 0x8e, 0xd1, 0xb5, 0xd7, 0xc9, 0xc7, 0x30,
     0x4f, 0x9c, 0xae, 0x5f, 0xc4, 0x37, 0xb4, 0xcd,
     0x3a, 0xeb, 0xe2, 0xec, 0x65, 0xf0, 0xd8, 0x5c,
     0x39, 0x18, 0xd3, 0xd3, 0xb5, 0xbb, 0xa8, 0x9b
 };
+*/
 
 /* Aligned staging buffer for 256-bit AES key. */
 static __attribute__((aligned(4))) uint8_t key_aligned[32];
@@ -263,7 +266,7 @@ int AESADV_AESGCM256_encryptKey(
     uint8_t tag[16]
 ) {
     // TODO: remove this load_key when CSC is operational
-    load_key(root_key);
+    //load_key(root_key);
     setup_gcm(DL_AESADV_DIR_ENCRYPT, iv, aad_len, keylen);
 
     process_aad(aad, aad_len);
@@ -335,7 +338,7 @@ int AESADV_AESGCM256_decryptKey(
     memset(temp, 0, keylen);
     
     // TODO: remove this load_key when CSC is operational
-    load_key(root_key);
+    //load_key(root_key);
     setup_gcm(DL_AESADV_DIR_DECRYPT, iv, aad_len, keylen);
 
     process_aad(aad, aad_len);

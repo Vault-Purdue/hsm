@@ -36,7 +36,7 @@
 
 MEMORY
 {
-FLASH (RX)      : origin = 0x00000000, length = 0x00040000,
+FLASH (RX)      : origin = 0x00004800, length = 0x0001B800, /* changed from origin = 0x00000000, length = 0x00040000 */
 SRAM (RWX)      : origin = 0x20200000, length = 0x00008000,
 /* Non-Main configuration memory */
 BCR_CONFIG(R)   : origin = 0x41C00000, length = 0x000000FF,
@@ -45,7 +45,7 @@ BSL_CONFIG(R)   : origin = 0x41C00100, length = 0x00000080,
 
 SECTIONS
 {
-    .intvecs:   > 0x00000000
+    .intvecs:   > 0x00004800 /* changed from .intvecs: > 0x00000000 */
     .text   : palign(8) {} > FLASH
     .const  : palign(8) {} > FLASH
     .cinit  : palign(8) {} > FLASH
