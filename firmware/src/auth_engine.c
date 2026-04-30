@@ -37,7 +37,6 @@ void authentication_engine(uart_frame_t *rx_frame) {
     SystemState state;
     uint8_t uart_payload[1] = {0};
     int exp_res = 0, rcv_res = 0;
-    byte exp_pin_hash[MAX_DIGEST_SIZE];
     byte rcv_pin_hash[MAX_DIGEST_SIZE];
     byte salt[SALT_SIZE] = {
         0xDB, 0x3C, 0x85, 0x59, 0x93, 0x24, 0x47, 0x65,
@@ -47,30 +46,22 @@ void authentication_engine(uart_frame_t *rx_frame) {
     };
     const byte info[] = "host-cli-pin-payload";
 
-    // Check the system state and do nothing if not in STATE_LOCKED
+    const byte exp_pin_hash[MAX_DIGEST_SIZE] = {
+        0x3D, 0xC1, 0x71, 0x7E, 0x8E, 0xD8, 0x20, 0x92, 
+        0x1E, 0xE4, 0x79, 0x42, 0x32, 0xEB, 0x11, 0xD6, 
+        0x1C, 0x2E, 0x5C, 0xE7, 0xDE, 0xCC, 0xF7, 0xC5, 
+        0xD6, 0x99, 0xC8, 0x2B, 0xE2, 0x4F, 0x8B, 0x79
+    };
+
+    // Check the system state and do nothing if not in STATE_WAIT_FOR_PIN
     state = system_state_machine(EVENT_NONE);
-    if (state != STATE_LOCKED) {
+    if (state != STATE_WAIT_FOR_PIN) {
         //__BKPT();
         uart_payload[0] = 1;
         uart_send_frame(MSG_PIN_EXCHANGE_ACK, uart_payload, 1);
         return;
     }
 
-    // Get Expected PIN
-    fm_read_pin(exp_pin_hash, sizeof(exp_pin_hash));
-
-    // Compute hashes
-    //exp_res = wc_HKDF(
-    //    WC_SHA256,
-    //    exp_pin,
-    //    sizeof(exp_pin),
-    //    salt,
-    //    sizeof(salt),
-    //    NULL,
-    //    0,
-    //    exp_pin_hash,
-    //    sizeof(exp_pin_hash)
-    //);
     rcv_res = wc_HKDF(
         WC_SHA256,
         rx_frame->payload,
