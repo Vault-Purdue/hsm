@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol - Version: 1.8
+# HSM UART Communication Protocol - Version: 1.9
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.
@@ -47,6 +47,8 @@ Length of the Payload, in bytes. Possible values are 0-128.
 ## Payload
 
 The data being sent itself. The only part of the frame which may be encrypted.
+
+If the Payload is encrypted, its first 16 bytes will contain the auth tag for GCM.
 
 ## Checksum
 
