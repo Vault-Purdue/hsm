@@ -7,60 +7,65 @@
 
 #include "uart_cmd_router.h"
 #include "file_manager.h"
+#include "auth_engine.h"
+#include "state_machine.h"
 
 /************************ FUNCTIONS ***********************/
 router_status_t router_dispatch(uart_frame_t *rx_frame) {
+    SystemState sys_state;
     if (rx_frame == NULL) {
         uart_send_debug_msg("ERROR: Null frame in router");
         return RT_FAIL;
     }
-
+    //__BKPT();
+    sys_state = system_state_machine(EVENT_NONE);
     switch (rx_frame->msg_id) {
         case MSG_SESSION_OPEN:
-            // return handle_session_open(rx_frame);
             uart_send_debug_msg("Session Open message received.");
+            if (sys_state == STATE_WAIT_FOR_UART) {
+                // TODO (Aidan): Open UART Session
+                // Aidan: The call below is a stub to keep state flow moving until the ECDH session is established.  
+                //        Please move the call to whatever module you feel is the most appropriate location.
+                //        See auth_engine.c for an example of how I issue EVENT_USER_AUTHENTICATED.
+                sys_state = system_state_machine(EVENT_UART_SESSION_ESTABLISHED);
+            }
             return RT_OK;
 
         case MSG_KEY_EXCHANGE:
-            // return handle_key_exchange(rx_frame);
             uart_send_debug_msg("Key Exchange message received.");
+            if (sys_state == STATE_WAIT_FOR_UART) {
+                // TODO (Aidan): Open UART Session
+                // Aidan: The call below is a stub to keep state flow moving until the ECDH session is established.  
+                //        Please move the call to whatever module you feel is the most appropriate location.
+                //        See auth_engine.c for an example of how I issue EVENT_USER_AUTHENTICATED.
+                sys_state = system_state_machine(EVENT_UART_SESSION_ESTABLISHED);
+            }
             return RT_OK;
 
         case MSG_PIN_EXCHANGE:
-            // return handle_pin_exchange(rx_frame);
             uart_send_debug_msg("PIN Exchange message received.");
+            if (sys_state == STATE_WAIT_FOR_PIN) {
+                authentication_engine(rx_frame);
+            }
             return RT_OK;
 
         case MSG_SESSION_CLOSE:
-            // return handle_session_close(rx_frame);
             uart_send_debug_msg("Session Close message received.");
+            // TODO (Alex): Need to tear down the ECDH session here
+            sys_state = system_state_machine(EVENT_SESSION_CLOSE_USER);
             return RT_OK;
 
         case MSG_FILE_TRANSFER_REQUEST:
-            return handle_file_transfer_request(rx_frame);
-
+            sys_state = system_state_machine(EVENT_CMD_RECEIVED);
+            if (sys_state == STATE_UNLOCKED) {
+                return handle_file_transfer_request(rx_frame);
+            }
+            
         case MSG_FILE_CONTENTS:
-            return handle_file_contents(rx_frame);
-
-        case MSG_FILE_TRANSFER_COMPLETE:
-            // return handle_file_transfer_complete(rx_frame);
-            uart_send_debug_msg("File Transfer Complete message received.");
-            return RT_OK;
-
-        case MSG_FILE_REQUEST_ACK:
-            // return handle_file_request_ack(rx_frame);
-            uart_send_debug_msg("File Request ACK received.");
-            return RT_OK;
-
-        case MSG_FILE_TRANSFER_COMPLETE_ACK:
-            // return handle_file_transfer_complete_ack(rx_frame);
-            uart_send_debug_msg("File Transfer Complete ACK received.");
-            return RT_OK;
-
-        case MSG_PIN_EXCHANGE_ACK:
-            // return handle_pin_exchange_ack(rx_frame);
-            uart_send_debug_msg("PIN Exchange ACK received.");
-            return RT_OK;
+            sys_state = system_state_machine(EVENT_CMD_RECEIVED);
+            if (sys_state == STATE_UNLOCKED) {
+                return handle_file_contents(rx_frame);
+            }
 
         default:
             uart_send_debug_msg_with_str("ERROR: Unknown Message ID", msg_id_to_str(rx_frame->msg_id));
