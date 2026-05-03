@@ -7,6 +7,8 @@
 
 #include "uart_cmd_router.h"
 #include "file_manager.h"
+#include "auth_engine.h"
+#include "state_machine.h"
 
 /************************* GLOBALS ************************/
 
@@ -27,13 +29,13 @@ static bool sessionEstablished = false;
 bool HSM_UART_ROUTER_validSessionEstablished(uart_frame_t *rx_frame) {
 
     // Null check (shouldn't happen, but just in case)
-    if (!frame) return false;
+    if (!rx_frame) return false;
 
     // If not session open / close, check against sessionEstablished
     if (
-        frame->msg_id == MSG_SESSION_OPEN
-        || frame->msg_id == MSG_KEY_EXCHANGE
-        || frame->msg_id == MSG_SESSION_CLOSE
+        rx_frame->msg_id == MSG_SESSION_OPEN
+        || rx_frame->msg_id == MSG_KEY_EXCHANGE
+        || rx_frame->msg_id == MSG_SESSION_CLOSE
     ) return true;
     return sessionEstablished;
 }
@@ -54,6 +56,8 @@ void HSM_UART_ROUTER_clearSessionData(void) {
 
 router_status_t router_dispatch(uart_frame_t *rx_frame) {
     SystemState sys_state;
+    uint8_t ack_payload = 0;
+    uint8_t err_ack_payload = 1;
     if (rx_frame == NULL) {
         uart_send_debug_msg("ERROR: Null frame in router");
         return RT_FAIL;
@@ -71,8 +75,6 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
 
         case MSG_SESSION_OPEN:
             uart_send_debug_msg("Session Open message received.");
-            
-            uint8_t err_ack_payload = 1;
 
             // State machine check
             if (sys_state != STATE_WAIT_FOR_UART) {
@@ -82,7 +84,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             }
 
             // Validate syntax according to UART frame ICD
-            if (rx_frame->payload_len != 1 || !rx_frame->payload || rx_frame->payload[0] != 0x41) {
+            if (rx_frame->payload_len != 1 || rx_frame->payload[0] != 0x41) {
                 HSM_UART_ROUTER_clearSessionData();
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
                 return RT_FAIL;
@@ -111,15 +113,12 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
 
             // Send acknoledgement
             memset(privECDH, 0, CRYPTO_AES_KEY_SIZE);
-            err_ack_payload = 0;
-            (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+            (void) uart_send_frame(rx_frame->msg_id, &ack_payload, 1);
             
             return RT_OK;
 
         case MSG_KEY_EXCHANGE:
             uart_send_debug_msg("Key Exchange message received.");
-
-            const uint8_t err_ack_payload = 1;
 
             // State machine check
             if (sys_state != STATE_WAIT_FOR_UART) {
@@ -128,7 +127,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             }
 
             // Validate syntax according to UART frame ICD
-            if (rx_frame->payload_len != CRYPTO_AES_KEY_SIZE || !rx_frame->payload) {
+            if (rx_frame->payload_len != CRYPTO_AES_KEY_SIZE) {
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
                 return RT_FAIL;
             }
@@ -175,10 +174,8 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             
             return RT_OK;
 
-        case MSG_PIN_EXCHANGE:
+        case MSG_PIN_EXCHANGE: {
             uart_send_debug_msg("PIN Exchange message received.");
-
-            const uint8_t err_ack_payload = 1;
             
             // State machine check
             if (sys_state != STATE_WAIT_FOR_PIN) {
@@ -187,7 +184,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             }
 
             // Validate syntax according to UART frame ICD
-            if (rx_frame->payload_len <= CRYPTO_GCM_TAG_SIZE || !rx_frame->payload) {
+            if (rx_frame->payload_len <= CRYPTO_GCM_TAG_SIZE) {
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
                 return RT_FAIL;
             }
@@ -217,11 +214,10 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             authentication_engine(pin, pinlen);
 
             return RT_OK;
+        }
 
         case MSG_SESSION_CLOSE:
             uart_send_debug_msg("Session Close message received.");
-
-            const uint8_t err_ack_payload = 0;
             
             // Clear all session data
             HSM_UART_ROUTER_clearSessionData();

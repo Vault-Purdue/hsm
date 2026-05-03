@@ -14,8 +14,6 @@
 #include <stdbool.h>
 #include "uart_protocol.h"
 #include "crypto_module.h"
-#include "auth_engine.h"
-#include "state_machine.h"
 
 // See hsm/assets/docs/uart_protocol.md for list of message types.
 typedef enum {
