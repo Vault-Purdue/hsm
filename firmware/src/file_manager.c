@@ -12,7 +12,6 @@
 #include <stdbool.h>
 
 #define MAX_SLOTS  8   /* one sector = 8 slots of 128B */
-#define CRYPTO_AES_KEY_SIZE 128
 //#define PIN_BUF_SIZE (PIN_LEN + 1)
 
 static struct {
@@ -162,7 +161,7 @@ static fm_status_t fm_crypto_erase_file_slot(uint8_t slot)
     flash_read(FLASH_BASE_FILE, buf, sizeof(buf));
 
     /* overwrite target slot with TRNG noise */
-    trngGenerateNumber((uint32_t *)&buf[slot], sizeof(fm_layout) / 4);
+    HSM_TRNG_generateNumber((uint32_t *)&buf[slot], sizeof(fm_layout) / sizeof(uint32_t));
 
     /* erase sector */
     if (!flash_erase_page(FLASH_BASE_FILE)) {
@@ -196,7 +195,7 @@ static fm_status_t fm_crypto_erase_key_slot(uint8_t slot)
     fm_key_layout buf[MAX_SLOTS];
     flash_read(FLASH_BASE_KEY, buf, sizeof(buf));
 
-    trngGenerateNumber((uint32_t *)&buf[slot], sizeof(fm_key_layout) / 4);
+    HSM_TRNG_generateNumber((uint32_t *)&buf[slot], sizeof(fm_key_layout) / sizeof(uint32_t));
 
     if (!flash_erase_page(FLASH_BASE_KEY)) {
         return FM_ERROR_FLASH;

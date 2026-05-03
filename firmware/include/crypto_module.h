@@ -55,7 +55,6 @@ typedef enum {
  */
 HSM_CRYPTO_STATUS HSM_CRYPTO_init(void);
 
-#ifndef ENABLE_HSM_CRYPTO_SESSION_TEST
 /**
  * @brief Generates the X25519 private session key.
  *
@@ -68,9 +67,8 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_init(void);
  * @retval 6: Failed to import the buffer into the private key struct.
  */
 HSM_CRYPTO_STATUS HSM_CRYPTO_generatePrivateSessionKey(uint8_t *buf, size_t len);
-#endif
 
-#ifdef ENABLE_HSM_CRYPTO_SESSION_TEST
+#ifdef CRYPTO_TEST
 /**
  * @brief Loads the X25519 private session key into the module.
  *
