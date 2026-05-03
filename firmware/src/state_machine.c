@@ -27,7 +27,7 @@
 
 SystemState system_state_machine(SystemStateEvent event) {
     
-    static SystemState state = STATE_LOCKED;
+    static SystemState state = STATE_WAIT_FOR_UART;
     static uint8_t invalid_pin_count = 0;
     const uint8_t MAX_RETRIES = 10;
     volatile uint16_t timer_load_val;
@@ -42,15 +42,22 @@ SystemState system_state_machine(SystemStateEvent event) {
             case EVENT_SESSION_CLOSE_TIMEOUT:
                 DL_TimerG_stopCounter(TIMER_0_INST);
                 DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_0_INST_LOAD_VALUE);
-                state = STATE_LOCKED;
+                state = STATE_WAIT_FOR_UART;
                 invalid_pin_count = 0;
                 break;
+            case EVENT_UART_SESSION_ESTABLISHED:
+                if(state == STATE_WAIT_FOR_UART) {
+                    state = STATE_WAIT_FOR_PIN;
+                }
+                break;
             case EVENT_USER_AUTHENTICATED:
-                DL_TimerG_stopCounter(TIMER_0_INST);
-                DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_0_INST_LOAD_VALUE);
-                DL_TimerG_startCounter(TIMER_0_INST);
-                state = STATE_UNLOCKED;
-                invalid_pin_count = 0;
+                if (state == STATE_WAIT_FOR_PIN) {
+                    DL_TimerG_stopCounter(TIMER_0_INST);
+                    DL_TimerG_setTimerCount(TIMER_0_INST, TIMER_0_INST_LOAD_VALUE);
+                    DL_TimerG_startCounter(TIMER_0_INST);
+                    state = STATE_UNLOCKED;
+                    invalid_pin_count = 0;
+                }
                 break;
             case EVENT_CMD_RECEIVED:
                 //__BKPT();
@@ -61,22 +68,26 @@ SystemState system_state_machine(SystemStateEvent event) {
                 }
                 break;
             case EVENT_INVALID_PIN:
-                invalid_pin_count++;
-                if (invalid_pin_count == MAX_RETRIES) {
-                    state = STATE_LOCKOUT;
-                } else {
-                    timer_load_val = TIMER_1_INST_LOAD_VALUE << invalid_pin_count;
-                    DL_TimerG_stopCounter(TIMER_1_INST);
-                    DL_TimerG_setLoadValue(TIMER_1_INST, timer_load_val);
-                    DL_TimerG_setTimerCount(TIMER_1_INST, timer_load_val);
-                    DL_TimerG_startCounter(TIMER_1_INST);
-                    state = STATE_PIN_HOLDOFF;
-                }
+                if (state == STATE_WAIT_FOR_PIN) {
+                    invalid_pin_count++;
+                    if (invalid_pin_count == MAX_RETRIES) {
+                        state = STATE_LOCKOUT;
+                    } else {
+                        timer_load_val = TIMER_1_INST_LOAD_VALUE << invalid_pin_count;
+                        DL_TimerG_stopCounter(TIMER_1_INST);
+                        DL_TimerG_setLoadValue(TIMER_1_INST, timer_load_val);
+                        DL_TimerG_setTimerCount(TIMER_1_INST, timer_load_val);
+                        DL_TimerG_startCounter(TIMER_1_INST);
+                        state = STATE_PIN_HOLDOFF;
+                    }
                 break;
+                }
             case EVENT_HOLDOFF_EXPIRED:
-                DL_TimerG_stopCounter(TIMER_1_INST);
-                DL_TimerG_setTimerCount(TIMER_1_INST, TIMER_1_INST_LOAD_VALUE);
-                state = STATE_LOCKED;
+                if (state == STATE_PIN_HOLDOFF) {
+                    DL_TimerG_stopCounter(TIMER_1_INST);
+                    DL_TimerG_setTimerCount(TIMER_1_INST, TIMER_1_INST_LOAD_VALUE);
+                    state = STATE_WAIT_FOR_PIN;
+                }
         }
         return state;
     }

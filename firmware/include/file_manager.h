@@ -28,7 +28,7 @@
 
 #define FM_MAX_PAYLOAD_SIZE 88
 
-#define PIN_LEN 6
+#endif
 
 /* Blocks Layout, 128-byte aligned*/
 typedef struct __attribute__((packed, aligned(16))) {
