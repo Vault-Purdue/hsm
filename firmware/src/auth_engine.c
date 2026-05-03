@@ -18,7 +18,8 @@
  * state machine runs an exponential holdoff timer after each
  * failed authentication attempt.
  *
- * @param provided_pin PIN received from the UART interface
+ * @param pin PIN received from the UART interface
+ * @param len Length of the received PIN in bytes
  *
  * @return None
  */
@@ -32,11 +33,11 @@
 
 #define SALT_SIZE 32
 
-void authentication_engine(uart_frame_t *rx_frame) {
+void authentication_engine(uint8_t *pin, size_t len) {
     // Initialize Variables
     SystemState state;
-    uint8_t uart_payload[1] = {0};
-    int exp_res = 0, rcv_res = 0;
+    uint8_t uart_payload = 1;
+    int rcv_res = 0;
     byte rcv_pin_hash[MAX_DIGEST_SIZE];
     byte salt[SALT_SIZE] = {
         0xDB, 0x3C, 0x85, 0x59, 0x93, 0x24, 0x47, 0x65,
@@ -57,27 +58,25 @@ void authentication_engine(uart_frame_t *rx_frame) {
     state = system_state_machine(EVENT_NONE);
     if (state != STATE_WAIT_FOR_PIN) {
         //__BKPT();
-        uart_payload[0] = 1;
-        uart_send_frame(MSG_PIN_EXCHANGE_ACK, uart_payload, 1);
+        uart_send_frame(MSG_PIN_EXCHANGE_ACK, &uart_payload, 1);
         return;
     }
 
     rcv_res = wc_HKDF(
         WC_SHA256,
-        rx_frame->payload,
-        (word32)rx_frame->payload_len,
+        pin,
+        (word32)len,
         salt,
         sizeof(salt),
         info,
-        sizeof(info)-1,
+        strlen(info),
         rcv_pin_hash,
         sizeof(rcv_pin_hash)
     );
     
-    if (exp_res != 0 || rcv_res != 0) {
+    if (rcv_res != 0) {
         uart_send_debug_msg("KDF Error");
-        uart_payload[0] = 1;
-        uart_send_frame(MSG_PIN_EXCHANGE_ACK, uart_payload, 1);
+        uart_send_frame(MSG_PIN_EXCHANGE_ACK, &uart_payload, 1);
         return;
     }
     
@@ -85,13 +84,12 @@ void authentication_engine(uart_frame_t *rx_frame) {
     if (memcmp(exp_pin_hash, rcv_pin_hash, MAX_DIGEST_SIZE) == 0) {
         // PINs are identical
         system_state_machine(EVENT_USER_AUTHENTICATED);
-        uart_payload[0] = 0;
+        uart_payload = 0;
         // uart_send_debug_msg("PINs Match");
     } else {
         // PINs do not match
-        system_state_machine(EVENT_INVALID_PIN);
-        uart_payload[0] = 1;    
+        system_state_machine(EVENT_INVALID_PIN); 
         //uart_send_debug_msg("PINs Do Not Match");
     }
-    uart_send_frame(MSG_PIN_EXCHANGE_ACK, uart_payload, 1);
+    uart_send_frame(MSG_PIN_EXCHANGE_ACK, &uart_payload, 1);
 }

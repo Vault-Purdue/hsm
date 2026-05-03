@@ -11,7 +11,11 @@
 #include "ti_drivers_config.h"
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "uart_protocol.h"
+#include "crypto_module.h"
+#include "auth_engine.h"
+#include "state_machine.h"
 
 // See hsm/assets/docs/uart_protocol.md for list of message types.
 typedef enum {
@@ -21,7 +25,6 @@ typedef enum {
     MSG_SESSION_CLOSE              = 0x0F,
     MSG_FILE_TRANSFER_REQUEST      = 0x20,
     MSG_FILE_CONTENTS              = 0x21,
-    MSG_FILE_TRANSFER_COMPLETE     = 0x22,
     MSG_FILE_REQUEST_ACK           = 0xF0,
     MSG_FILE_TRANSFER_COMPLETE_ACK = 0xF1,
     MSG_PIN_EXCHANGE_ACK           = 0xF2,

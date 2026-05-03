@@ -7,52 +7,231 @@
 
 #include "uart_cmd_router.h"
 #include "file_manager.h"
-#include "auth_engine.h"
-#include "state_machine.h"
+
+/************************* GLOBALS ************************/
+
+static uint8_t pubECDH[CRYPTO_AES_KEY_SIZE] = {0};
+static uint8_t sessionKey[CRYPTO_AES_KEY_SIZE] = {0};
+static uint8_t sessionIv[CRYPTO_GCM_IV_SIZE] = {0};
+static bool sessionEstablished = false;
 
 /************************ FUNCTIONS ***********************/
+
+/**
+ * @brief Verifies that a session has been established.
+ * 
+ * @param rx_frame Pointer to a received UART frame from the Host CLI.
+ *
+ * @returns true if valid session has been established
+ */
+bool HSM_UART_ROUTER_validSessionEstablished(uart_frame_t *rx_frame) {
+
+    // Null check (shouldn't happen, but just in case)
+    if (!frame) return false;
+
+    // If not session open / close, check against sessionEstablished
+    if (
+        frame->msg_id == MSG_SESSION_OPEN
+        || frame->msg_id == MSG_KEY_EXCHANGE
+        || frame->msg_id == MSG_SESSION_CLOSE
+    ) return true;
+    return sessionEstablished;
+}
+
+/**
+ * @brief Clears the session data.
+ */
+void HSM_UART_ROUTER_clearSessionData(void) {
+
+    // Zeroize all buffers related to session
+    memset(pubECDH, 0, CRYPTO_AES_KEY_SIZE);
+    memset(sessionKey, 0, CRYPTO_AES_KEY_SIZE);
+    memset(sessionIv, 0, CRYPTO_GCM_IV_SIZE);
+
+    // Indicates valid session has not been established
+    sessionEstablished = false;
+}
+
 router_status_t router_dispatch(uart_frame_t *rx_frame) {
     SystemState sys_state;
     if (rx_frame == NULL) {
         uart_send_debug_msg("ERROR: Null frame in router");
         return RT_FAIL;
     }
+
+    // Session check
+    if (!HSM_UART_ROUTER_validSessionEstablished(rx_frame)) {
+        uart_send_debug_msg("ERROR: invalid session");
+        return RT_FAIL;
+    }
+    
     //__BKPT();
     sys_state = system_state_machine(EVENT_NONE);
     switch (rx_frame->msg_id) {
+
         case MSG_SESSION_OPEN:
             uart_send_debug_msg("Session Open message received.");
-            if (sys_state == STATE_WAIT_FOR_UART) {
-                // TODO (Aidan): Open UART Session
-                // Aidan: The call below is a stub to keep state flow moving until the ECDH session is established.  
-                //        Please move the call to whatever module you feel is the most appropriate location.
-                //        See auth_engine.c for an example of how I issue EVENT_USER_AUTHENTICATED.
-                sys_state = system_state_machine(EVENT_UART_SESSION_ESTABLISHED);
+            
+            uint8_t err_ack_payload = 1;
+
+            // State machine check
+            if (sys_state != STATE_WAIT_FOR_UART) {
+                HSM_UART_ROUTER_clearSessionData();
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
             }
+
+            // Validate syntax according to UART frame ICD
+            if (rx_frame->payload_len != 1 || !rx_frame->payload || rx_frame->payload[0] != 0x41) {
+                HSM_UART_ROUTER_clearSessionData();
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Clear all session data
+            HSM_UART_ROUTER_clearSessionData();
+            
+            // Generate private key
+            uint8_t privECDH[CRYPTO_AES_KEY_SIZE];
+            memset(privECDH, 0, CRYPTO_AES_KEY_SIZE);
+            if (HSM_CRYPTO_generatePrivateSessionKey(privECDH, CRYPTO_AES_KEY_SIZE) != HSM_CRYPTO_OK) {
+                memset(privECDH, 0, CRYPTO_AES_KEY_SIZE);
+                HSM_UART_ROUTER_clearSessionData();
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Generate public key
+            if (HSM_CRYPTO_generatePublicSessionKey(privECDH, pubECDH, CRYPTO_AES_KEY_SIZE) != HSM_CRYPTO_OK) {
+                memset(privECDH, 0, CRYPTO_AES_KEY_SIZE);
+                HSM_UART_ROUTER_clearSessionData();
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Send acknoledgement
+            memset(privECDH, 0, CRYPTO_AES_KEY_SIZE);
+            err_ack_payload = 0;
+            (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+            
             return RT_OK;
 
         case MSG_KEY_EXCHANGE:
             uart_send_debug_msg("Key Exchange message received.");
-            if (sys_state == STATE_WAIT_FOR_UART) {
-                // TODO (Aidan): Open UART Session
-                // Aidan: The call below is a stub to keep state flow moving until the ECDH session is established.  
-                //        Please move the call to whatever module you feel is the most appropriate location.
-                //        See auth_engine.c for an example of how I issue EVENT_USER_AUTHENTICATED.
-                sys_state = system_state_machine(EVENT_UART_SESSION_ESTABLISHED);
+
+            const uint8_t err_ack_payload = 1;
+
+            // State machine check
+            if (sys_state != STATE_WAIT_FOR_UART) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
             }
+
+            // Validate syntax according to UART frame ICD
+            if (rx_frame->payload_len != CRYPTO_AES_KEY_SIZE || !rx_frame->payload) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Load client public key into session
+            if (HSM_CRYPTO_loadClientPublicKey(rx_frame->payload, rx_frame->payload_len) != HSM_CRYPTO_OK) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Generate shared secret
+            uint8_t secret[CRYPTO_AES_KEY_SIZE];
+            memset(secret, 0, CRYPTO_AES_KEY_SIZE);
+            if (HSM_CRYPTO_generateSharedSecret(secret, CRYPTO_AES_KEY_SIZE) != HSM_CRYPTO_OK) {
+                memset(secret, 0, CRYPTO_AES_KEY_SIZE);
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Derive session key and IV
+            uint8_t tempKey[CRYPTO_AES_KEY_SIZE];
+            uint8_t tempIv[CRYPTO_GCM_IV_SIZE];
+            if (HSM_CRYPTO_deriveKeyAndIV(secret, tempKey, CRYPTO_AES_KEY_SIZE, tempIv, CRYPTO_GCM_IV_SIZE) != HSM_CRYPTO_OK) {
+                memset(tempKey, 0, CRYPTO_AES_KEY_SIZE);
+                memset(tempIv, 0, CRYPTO_GCM_IV_SIZE);
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Load generated values into session variables
+            memset(sessionKey, 0, CRYPTO_AES_KEY_SIZE);
+            memset(sessionIv, 0, CRYPTO_GCM_IV_SIZE);
+            memcpy(sessionKey, tempKey, CRYPTO_AES_KEY_SIZE);
+            memcpy(sessionIv, tempIv, CRYPTO_GCM_IV_SIZE);
+            memset(tempKey, 0, CRYPTO_AES_KEY_SIZE);
+            memset(tempIv, 0, CRYPTO_GCM_IV_SIZE);
+            sessionEstablished = true;
+            
+            // Update state machine
+            sys_state = system_state_machine(EVENT_UART_SESSION_ESTABLISHED);
+            
+            // Send public key on success
+            (void) uart_send_frame(rx_frame->msg_id, pubECDH, CRYPTO_AES_KEY_SIZE);
+            
             return RT_OK;
 
         case MSG_PIN_EXCHANGE:
             uart_send_debug_msg("PIN Exchange message received.");
-            if (sys_state == STATE_WAIT_FOR_PIN) {
-                authentication_engine(rx_frame);
+
+            const uint8_t err_ack_payload = 1;
+            
+            // State machine check
+            if (sys_state != STATE_WAIT_FOR_PIN) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
             }
+
+            // Validate syntax according to UART frame ICD
+            if (rx_frame->payload_len <= CRYPTO_GCM_TAG_SIZE || !rx_frame->payload) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
+            // Decrypt the PIN
+            size_t pinlen = rx_frame->payload_len - CRYPTO_GCM_TAG_SIZE;
+            uint8_t pin[pinlen];
+            memset(pin, 0, pinlen);
+            if (
+                HSM_CRYPTO_decryptCommandPayload(
+                    sessionKey,
+                    CRYPTO_AES_KEY_SIZE,
+                    sessionIv,
+                    CRYPTO_GCM_IV_SIZE,
+                    rx_frame->payload,
+                    CRYPTO_GCM_TAG_SIZE,
+                    &rx_frame->payload[pinlen],
+                    pin,
+                    pinlen
+                ) != HSM_CRYPTO_OK
+            ) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+            
+            // Send PIN to auth engine (handles the UART messaging over there)
+            authentication_engine(pin, pinlen);
+
             return RT_OK;
 
         case MSG_SESSION_CLOSE:
             uart_send_debug_msg("Session Close message received.");
-            // TODO (Alex): Need to tear down the ECDH session here
+
+            const uint8_t err_ack_payload = 0;
+            
+            // Clear all session data
+            HSM_UART_ROUTER_clearSessionData();
+
+            // Update state machine
             sys_state = system_state_machine(EVENT_SESSION_CLOSE_USER);
+
+            // Send acknowledgement
+            (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+
             return RT_OK;
 
         case MSG_FILE_TRANSFER_REQUEST:
@@ -81,7 +260,6 @@ const char* msg_id_to_str(uint8_t msg_id) {
         case MSG_SESSION_CLOSE:              return "SESSION_CLOSE";
         case MSG_FILE_TRANSFER_REQUEST:      return "FILE_TRANSFER_REQUEST";
         case MSG_FILE_CONTENTS:              return "FILE_CONTENTS";
-        case MSG_FILE_TRANSFER_COMPLETE:     return "FILE_TRANSFER_COMPLETE";
         case MSG_FILE_REQUEST_ACK:           return "FILE_REQUEST_ACK";
         case MSG_FILE_TRANSFER_COMPLETE_ACK: return "FILE_TRANSFER_COMPLETE_ACK";
         case MSG_PIN_EXCHANGE_ACK:           return "PIN_EXCHANGE_ACK";
