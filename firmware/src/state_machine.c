@@ -27,7 +27,11 @@
 
 SystemState system_state_machine(SystemStateEvent event) {
     
+#ifdef DEBUG_SKIP_AUTH
+    static SystemState state = STATE_UNLOCKED;
+#else
     static SystemState state = STATE_WAIT_FOR_UART;
+#endif
     static uint8_t invalid_pin_count = 0;
     const uint8_t MAX_RETRIES = 10;
     volatile uint16_t timer_load_val;

@@ -19,11 +19,14 @@
 #include "state_machine.h"
 #include "file_manager.h"
 
+#include "../csc/csc_boot.h"
+#include "driver/keystore.h"
+
 /** @brief Initializes peripherals for system boot.
 */
 void init() {
-    // Initialize all of the hardware components
     SYS_initPower();
+    // Initialize all of the hardware components
     GPIO_init();
     TIMER_0_init();
     TIMER_1_init();
@@ -37,14 +40,19 @@ void init() {
 int main(void) {
     uart_frame_t rx_frame;
     SystemState sysState;
-
-    //uart_msg_id_t cmd;
-
+#if 0
+    int csc_rc = CSC_boot();
+    if (csc_rc != CSC_BOOT_OK) {
+        //Error in CSC
+        while (1) { __WFI(); }
+    }
+    HSM_KEYSTORE_transferRootKeyToAES();
+#endif
     // Initialize device peripherals
     init();
     STATUS_LED_OFF();
 
-#if CRYPTO_TEST
+#ifdef CRYPTO_TEST
     // Set breakpoint if we fail crypto session test
     if (!HSM_CRYPTOTEST_sessionTest()) {
         __BKPT();
@@ -68,17 +76,26 @@ int main(void) {
     }
 #endif
     while (1) {
+        // Receive UART frame
         int result = uart_receive_frame(&rx_frame);
         if (result != UART_RECV_FULL_FRAME_RECEIVED) {
             handle_uart_error(result);
             continue;
         }
 
+        // State can't be in lockout
+        sysState = system_state_machine(EVENT_NONE);
+        if (sysState == STATE_LOCKOUT) {
+            uart_send_debug_msg_with_str("ERROR: HSM is locked out", msg_id_to_str(rx_frame.msg_id));
+            continue;
+        }
+
         router_status_t status = router_dispatch(&rx_frame);
         if (status == RT_FAIL) {
             uart_send_debug_msg_with_str("ERROR: Router dispatch failed for msg_id", msg_id_to_str(rx_frame.msg_id));
+            continue;
         }
-        sysState = system_state_machine(EVENT_NONE);
+        
         if (sysState == STATE_UNLOCKED) {
             STATUS_LED_ON();
             uart_send_debug_msg("unlocked");
