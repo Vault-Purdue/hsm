@@ -128,6 +128,9 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
 
             // Clear all session data
             HSM_UART_ROUTER_clearSessionData();
+
+            ack_payload = 0x41;
+            (void) uart_send_frame(MSG_SESSION_OPEN, &ack_payload, 1);
             
             // Generate private key
             uint8_t privECDH[CRYPTO_AES_KEY_SIZE];
@@ -234,8 +237,8 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             }
 
             // authenticate and send ack
-            uint8_t ack_pt = (authentication_engine(pin, pin_len) == AE_OK) ? 0 : 1;
-            router_send_encrypted_frame(MSG_PIN_EXCHANGE_ACK, &ack_pt, 1);
+            ack_payload = (authentication_engine(pin, pin_len) == AE_OK) ? 0 : 1;
+            router_send_encrypted_frame(MSG_PIN_EXCHANGE_ACK, &ack_payload, 1);
 
             return RT_OK;
         }

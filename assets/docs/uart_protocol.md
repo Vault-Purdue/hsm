@@ -1,4 +1,4 @@
-# HSM UART Communication Protocol - Version: 1.9
+# HSM UART Communication Protocol - Version: 2.0
 
 UART will be used for communication between the host and the HSM. The host CLI program will exchange messages with the HSM UART CMD Router, according to the protocol following.
 None of this is finalized; this is all subject to change.
@@ -30,7 +30,7 @@ This field identifies the type of message the frame is, and thus how the payload
 
 | Message Type | Byte Value | Is Payload Encrypted? | Payload Content | Payload Length (bytes) | Relevant Host Command | Sender | Routing Criteria
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Host | state == WAIT_FOR_UART |
+| Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Both | state == WAIT_FOR_UART |
 | Key Exchange | 0x02 | No | Public Key | 32 | AUTH | Both | state == WAIT_FOR_UART |
 | PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host | state == WAIT_FOR_PIN |
 | Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) | any state |
