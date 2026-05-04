@@ -120,7 +120,6 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
 
             // Send acknoledgement
             memset(privECDH, 0, CRYPTO_AES_KEY_SIZE);
-            (void) uart_send_frame(rx_frame->msg_id, &ack_payload, 1);
             
             return RT_OK;
 
@@ -138,7 +137,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
                 return RT_FAIL;
             }
-
+    
             // Load client public key into session
             if (HSM_CRYPTO_loadClientPublicKey(rx_frame->payload, rx_frame->payload_len) != HSM_CRYPTO_OK) {
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
@@ -208,7 +207,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
                     CRYPTO_GCM_IV_SIZE,
                     rx_frame->payload,
                     CRYPTO_GCM_TAG_SIZE,
-                    &rx_frame->payload[pinlen],
+                    &rx_frame->payload[CRYPTO_GCM_TAG_SIZE],
                     pin,
                     pinlen
                 ) != HSM_CRYPTO_OK
@@ -216,7 +215,7 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
                 return RT_FAIL;
             }
-            
+
             // Send PIN to auth engine (handles the UART messaging over there)
             authentication_engine(pin, pinlen);
 
