@@ -63,11 +63,18 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
         return RT_FAIL;
     }
 
-    // Session check
+    // Session check 
+    #ifndef DEBUG_SKIP_AUTH
     if (!HSM_UART_ROUTER_validSessionEstablished(rx_frame)) {
         uart_send_debug_msg("ERROR: invalid session");
         return RT_FAIL;
     }
+    sys_state = system_state_machine(EVENT_NONE);
+    if (sys_state != STATE_UNLOCKED) {
+        uart_send_debug_msg("ERROR: not unlocked");
+        return RT_FAIL;
+    }
+    #endif
     
     //__BKPT();
     sys_state = system_state_machine(EVENT_NONE);

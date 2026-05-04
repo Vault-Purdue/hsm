@@ -19,11 +19,14 @@
 #include "state_machine.h"
 #include "file_manager.h"
 
+#include "../csc/csc_boot.h"
+#include "driver/keystore.h"
+
 /** @brief Initializes peripherals for system boot.
 */
 void init() {
-    // Initialize all of the hardware components
     SYS_initPower();
+    // Initialize all of the hardware components
     GPIO_init();
     TIMER_0_init();
     TIMER_1_init();
@@ -37,9 +40,14 @@ void init() {
 int main(void) {
     uart_frame_t rx_frame;
     SystemState sysState;
-
-    //uart_msg_id_t cmd;
-
+#if 0
+    int csc_rc = CSC_boot();
+    if (csc_rc != CSC_BOOT_OK) {
+        //Error in CSC
+        while (1) { __WFI(); }
+    }
+    HSM_KEYSTORE_transferRootKeyToAES();
+#endif
     // Initialize device peripherals
     init();
     STATUS_LED_OFF();
