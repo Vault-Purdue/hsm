@@ -32,8 +32,8 @@ This field identifies the type of message the frame is, and thus how the payload
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Session Open | 0x01 | No | `0x41` ('A' of Auth) | 1 | AUTH | Both | state == WAIT_FOR_UART |
 | Key Exchange | 0x02 | No | Public Key | 32 | AUTH | Both | state == WAIT_FOR_UART |
-| PIN Exchange | 0x03 | Yes? | ASCII PIN digits | 6 | AUTH | Host | state == WAIT_FOR_PIN |
-| Session Close | 0x0F | No | None | 0 | CLOSE | Host (Both?) | any state |
+| PIN Exchange | 0x03 | Yes | ASCII PIN digits | 6 | AUTH | Host | state == WAIT_FOR_PIN |
+| Session Close | 0x0F | No | `0x43` ('C' of Close) | 1 | CLOSE | Both | any state |
 | File Transfer Request | 0x20 | No | 1B direction (`0x77`: write, `0x72`: read) + 1B File ID | 2 | READ/WRITE | Host | state == UNLOCKED |
 | File Contents | 0x21 | Yes | File contents itself | 88 | READ/WRITE | Both | state == UNLOCKED |
 | File Request ACK | 0xF0 | No | `0x00`: approved, `0x01`: rejected | 1 | READ/WRITE | HSM | N/A |

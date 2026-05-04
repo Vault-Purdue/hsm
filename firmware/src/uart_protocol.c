@@ -61,6 +61,20 @@ void uart_init(void) {
 }
 
 /**
+ * @brief Computes a CRC-16/CCITT-FALSE checksum over a byte buffer.
+ */
+static uint16_t crc16_ccitt(const uint8_t *data, uint16_t len) {
+    uint16_t crc = 0xFFFF;
+    for(uint16_t i = 0; i < len; i++) {
+        crc ^= (uint16_t)data[i] << 8;
+        for (int j = 0; j < 8; j++) 
+            crc = (crc & 0x8000) ? (uint16_t)(crc << 1) ^ 0x1021 : (uint16_t)(crc << 1);
+    }
+
+    return crc;
+}
+
+/**
  * @brief UART Helper function for processing received bytes.
  * 
  * Uses a state machine to track where in the UART frame we're
@@ -106,8 +120,7 @@ int Uart_Process_Byte(uint8_t byte, uart_frame_t *rx_frame) {
             rx_frame->checksum += byte;
             
             // Full frame received!
-            // TODO: Actually calculate checksum for confirmation
-            uint16_t calculated_checksum = rx_frame->checksum;
+            uint16_t calculated_checksum = crc16_ccitt(rx_frame->payload, rx_frame->payload_len);
             if (rx_frame->checksum != calculated_checksum) {
                 parserState = WAIT_START;
                 return UART_RECV_ERROR_BAD_CHECKSUM;
@@ -174,8 +187,7 @@ int uart_send_frame(uint8_t msg_id, uint8_t *payload, uint16_t payload_len) {
     header[1] = msg_id;
     header[2] = payload_len;
 
-    // TODO: generate checksum
-    uint16_t checksum = 0xFFFF;
+    uint16_t checksum = crc16_ccitt(payload, payload_len);
     uint8_t swapped_checksum[2];
     // Swapping checksum length bits for proper endianness
     swapped_checksum[0] = (uint8_t)(checksum >> 8) & 0xFF;
@@ -239,6 +251,7 @@ void uart_send_debug_msg_with_str(const char *message, const char *value) {
  * uart_send_debug_msg_with_error_code().
  */
 void uart_send_debug_msg(const char *message) {
+    return;
     //TODO: Currently only accepts debug messages under 64 characters
     char final_string[64];
 

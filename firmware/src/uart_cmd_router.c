@@ -249,11 +249,18 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             // Clear all session data
             HSM_UART_ROUTER_clearSessionData();
 
+            // Validate syntax according to UART frame ICD
+            if (rx_frame->payload_len != 1 || rx_frame->payload[0] != 0x43) {
+                (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+                return RT_FAIL;
+            }
+
             // Update state machine
             sys_state = system_state_machine(EVENT_SESSION_CLOSE_USER);
 
             // Send acknowledgement
-            (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
+            ack_payload = 0x43;
+            (void) uart_send_frame(rx_frame->msg_id, &ack_payload, 1);
 
             return RT_OK;
 
