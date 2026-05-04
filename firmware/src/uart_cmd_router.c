@@ -20,11 +20,11 @@ static bool sessionEstablished = false;
 /************************ FUNCTIONS ***********************/
 
 /**
- * @brief Verifies that a session has been established.
+ * @brief Verifies that the session state is valid for the current message.
  * 
  * @param rx_frame Pointer to a received UART frame from the Host CLI.
  *
- * @returns true if valid session has been established
+ * @returns true if session is valid for current message (i.e. active for file transfers, inactive for session open)
  */
 bool HSM_UART_ROUTER_validSessionEstablished(uart_frame_t *rx_frame) {
 
@@ -32,11 +32,11 @@ bool HSM_UART_ROUTER_validSessionEstablished(uart_frame_t *rx_frame) {
     if (!rx_frame) return false;
 
     // If not session open / close, check against sessionEstablished
-    if (
-        rx_frame->msg_id == MSG_SESSION_OPEN
-        || rx_frame->msg_id == MSG_KEY_EXCHANGE
-        || rx_frame->msg_id == MSG_SESSION_CLOSE
-    ) return true;
+    if (rx_frame->msg_id == MSG_SESSION_CLOSE) return true;
+
+    if (rx_frame->msg_id == MSG_SESSION_OPEN || rx_frame->msg_id == MSG_KEY_EXCHANGE) 
+        return !sessionEstablished;
+
     return sessionEstablished;
 }
 
