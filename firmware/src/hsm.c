@@ -19,7 +19,6 @@
 #include "state_machine.h"
 #include "file_manager.h"
 
-#include "../csc/csc_boot.h"
 #include "driver/keystore.h"
 
 /** @brief Initializes peripherals for system boot.

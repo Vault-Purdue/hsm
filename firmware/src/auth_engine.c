@@ -30,13 +30,13 @@
 #include "file_manager.h"
 #include "wolfssl/wolfcrypt/hmac.h"
 #include "uart_cmd_router.h"
+#include "auth_engine.h"
 
 #define SALT_SIZE 32
 
-void authentication_engine(uint8_t *pin, size_t len) {
+auth_eng_status_t authentication_engine(uint8_t *pin, size_t len) {
     // Initialize Variables
     SystemState state;
-    uint8_t uart_payload = 1;
     int rcv_res = 0;
     byte rcv_pin_hash[MAX_DIGEST_SIZE];
     byte salt[SALT_SIZE] = {
@@ -58,8 +58,7 @@ void authentication_engine(uint8_t *pin, size_t len) {
     state = system_state_machine(EVENT_NONE);
     if (state != STATE_WAIT_FOR_PIN) {
         //__BKPT();
-        uart_send_frame(MSG_PIN_EXCHANGE_ACK, &uart_payload, 1);
-        return;
+        return AE_FAIL;
     }
 
     rcv_res = wc_HKDF(
@@ -76,20 +75,19 @@ void authentication_engine(uint8_t *pin, size_t len) {
     
     if (rcv_res != 0) {
         uart_send_debug_msg("KDF Error");
-        uart_send_frame(MSG_PIN_EXCHANGE_ACK, &uart_payload, 1);
-        return;
+        return AE_FAIL;
     }
     
     // Compare the expected and received PINs    
     if (memcmp(exp_pin_hash, rcv_pin_hash, MAX_DIGEST_SIZE) == 0) {
         // PINs are identical
         system_state_machine(EVENT_USER_AUTHENTICATED);
-        uart_payload = 0;
         // uart_send_debug_msg("PINs Match");
+        return AE_OK;
     } else {
         // PINs do not match
         system_state_machine(EVENT_INVALID_PIN); 
         //uart_send_debug_msg("PINs Do Not Match");
+        return AE_FAIL;
     }
-    uart_send_frame(MSG_PIN_EXCHANGE_ACK, &uart_payload, 1);
 }

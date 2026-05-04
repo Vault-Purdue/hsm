@@ -54,6 +54,42 @@ void HSM_UART_ROUTER_clearSessionData(void) {
     sessionEstablished = false;
 }
 
+static int router_decrypt_payload(const uint8_t *payload, size_t payload_len, uint8_t *pt_out, 
+                                  size_t *pt_len_out) {
+    if(payload_len <= CRYPTO_GCM_TAG_SIZE) return -1;
+    size_t ct_len = payload_len - CRYPTO_GCM_TAG_SIZE;
+    const uint8_t *auth_tag = payload;
+    const uint8_t *ciphertext = payload + CRYPTO_GCM_TAG_SIZE;
+    if(HSM_CRYPTO_decryptCommandPayload(
+        sessionKey, CRYPTO_AES_KEY_SIZE,
+        sessionIv, CRYPTO_GCM_IV_SIZE,
+        (uint8_t *) auth_tag, CRYPTO_GCM_TAG_SIZE,
+        (uint8_t *) ciphertext, pt_out, ct_len) != HSM_CRYPTO_OK) return -1;
+    *pt_len_out = ct_len;
+    return 0;
+}
+
+static int router_encrypt_payload(const uint8_t *pt, size_t pt_len, uint8_t *payload_out, 
+                                  size_t *payload_len_out) {
+    uint8_t *auth_tag = payload_out;
+    uint8_t *ciphertext = payload_out + CRYPTO_GCM_TAG_SIZE;
+    if(HSM_CRYPTO_encryptCommandPayload(
+        sessionKey, CRYPTO_AES_KEY_SIZE,
+        sessionIv, CRYPTO_GCM_IV_SIZE,
+        auth_tag, CRYPTO_GCM_TAG_SIZE,
+        (uint8_t *)pt, ciphertext, pt_len) != HSM_CRYPTO_OK) return -1;
+    *payload_len_out = pt_len + CRYPTO_GCM_TAG_SIZE;
+    return 0;
+}
+
+router_status_t router_send_encrypted_frame(uint8_t msg_id, const uint8_t *pt, size_t pt_len) {
+    uint8_t enc[pt_len + CRYPTO_GCM_TAG_SIZE];
+    size_t enc_len = 0;
+    if(router_encrypt_payload(pt, pt_len, enc, &enc_len) != 0) return RT_FAIL;
+    (void) uart_send_frame(msg_id, enc, (uint16_t) enc_len);
+    return RT_OK;
+}
+
 router_status_t router_dispatch(uart_frame_t *rx_frame) {
     SystemState sys_state;
     uint8_t ack_payload = 0;
@@ -63,18 +99,11 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
         return RT_FAIL;
     }
 
-    // Session check 
-    #ifndef DEBUG_SKIP_AUTH
+    // Session check
     if (!HSM_UART_ROUTER_validSessionEstablished(rx_frame)) {
         uart_send_debug_msg("ERROR: invalid session");
         return RT_FAIL;
     }
-    sys_state = system_state_machine(EVENT_NONE);
-    if (sys_state != STATE_UNLOCKED) {
-        uart_send_debug_msg("ERROR: not unlocked");
-        return RT_FAIL;
-    }
-    #endif
     
     //__BKPT();
     sys_state = system_state_machine(EVENT_NONE);
@@ -195,29 +224,18 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
                 return RT_FAIL;
             }
 
-            // Decrypt the PIN
-            size_t pinlen = rx_frame->payload_len - CRYPTO_GCM_TAG_SIZE;
-            uint8_t pin[pinlen];
-            memset(pin, 0, pinlen);
-            if (
-                HSM_CRYPTO_decryptCommandPayload(
-                    sessionKey,
-                    CRYPTO_AES_KEY_SIZE,
-                    sessionIv,
-                    CRYPTO_GCM_IV_SIZE,
-                    rx_frame->payload,
-                    CRYPTO_GCM_TAG_SIZE,
-                    &rx_frame->payload[CRYPTO_GCM_TAG_SIZE],
-                    pin,
-                    pinlen
-                ) != HSM_CRYPTO_OK
-            ) {
+            // decrypt payload into pin
+            uint8_t pin[rx_frame->payload_len];
+            size_t pin_len = 0;
+            memset(pin, 0, sizeof(pin));
+            if(router_decrypt_payload(rx_frame->payload, rx_frame->payload_len, pin, &pin_len) != 0) {
                 (void) uart_send_frame(rx_frame->msg_id, &err_ack_payload, 1);
                 return RT_FAIL;
             }
 
-            // Send PIN to auth engine (handles the UART messaging over there)
-            authentication_engine(pin, pinlen);
+            // authenticate and send ack
+            uint8_t ack_pt = (authentication_engine(pin, pin_len) == AE_OK) ? 0 : 1;
+            router_send_encrypted_frame(MSG_PIN_EXCHANGE_ACK, &ack_pt, 1);
 
             return RT_OK;
         }
@@ -284,6 +302,13 @@ router_status_t handle_file_transfer_request(uart_frame_t *frame) {
 
 router_status_t handle_file_contents(uart_frame_t *frame) {
     if (frame == NULL) return RT_FAIL;
-    if (frame->payload_len == 0 || frame->payload_len > FM_MAX_PAYLOAD_SIZE) return RT_FAIL;
-    return fm_handle_file_contents(frame->payload, frame->payload_len);
+    if(frame->payload_len > FM_MAX_PAYLOAD_SIZE + CRYPTO_GCM_TAG_SIZE) return RT_FAIL;
+
+    // decrypt payload into plaintext
+    uint8_t pt[FM_MAX_PAYLOAD_SIZE];
+    size_t pt_len = 0;
+    if(router_decrypt_payload(frame->payload, frame->payload_len, pt, &pt_len) != 0) {
+        return RT_FAIL;
+    }
+    return fm_handle_file_contents(pt, (uint8_t) pt_len);
 }

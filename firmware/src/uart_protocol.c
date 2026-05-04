@@ -164,7 +164,6 @@ void handle_uart_error(int err_code) {
  * Assembles a UART frame for the given payload and sends it.
  */
 int uart_send_frame(uint8_t msg_id, uint8_t *payload, uint16_t payload_len) {
-    //TODO: Make a way for users to encrypt their payload BEFORE it is passed to this function.
     if (payload_len > UART_MAX_PAYLOAD_LEN) {
         return UART_SEND_ERROR_MSG_TOO_LONG;
     }

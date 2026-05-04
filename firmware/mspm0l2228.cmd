@@ -36,35 +36,33 @@
 
 MEMORY
 {
-    FLASH        (RX)  : origin = 0x00000000, length = 0x00004000
-    SECRET       (RX)  : origin = 0x00004000, length = 0x00000400
-    LOCK_STORAGE (RX)  : origin = 0x00004400, length = 0x00000400
-    FLASH_APP    (RX)  : origin = 0x00004800, length = 0x0003B800
-    SRAM         (RWX) : origin = 0x20200000, length = 0x00008000
-    BCR_CONFIG   (R)   : origin = 0x41C00000, length = 0x000000FF
-    BSL_CONFIG   (R)   : origin = 0x41C00100, length = 0x00000080
+FLASH (RX)      : origin = 0x00000000, length = 0x00040000,
+SRAM (RWX)      : origin = 0x20200000, length = 0x00008000,
+/* Non-Main configuration memory */
+BCR_CONFIG(R)   : origin = 0x41C00000, length = 0x000000FF,
+BSL_CONFIG(R)   : origin = 0x41C00100, length = 0x00000080,
 }
 
 SECTIONS
 {
-    .intvecs      :                  > 0x00000000
-    .text         : palign(8) {}     > FLASH | FLASH_APP
-    .const        : palign(8) {}     > FLASH | FLASH_APP
-    .cinit        : palign(8) {}     > FLASH | FLASH_APP
-    .pinit        : palign(8) {}     > FLASH | FLASH_APP
-    .rodata       : palign(8) {}     > FLASH | FLASH_APP
-    .ARM.exidx    : palign(8) {}     > FLASH | FLASH_APP
-    .init_array   : palign(8) {}     > FLASH | FLASH_APP
-    .binit        : palign(8) {}     > FLASH | FLASH_APP
-    .TI.ramfunc   : load = FLASH, palign(8), run = SRAM, table(BINIT)
-    .secret       : palign(8) {}     > SECRET
-    .lockStg      : (NOINIT) palign(8) {} > LOCK_STORAGE
-    .vtable       :                  > SRAM
-    .args         :                  > SRAM
-    .data         :                  > SRAM
-    .bss          :                  > SRAM
-    .sysmem       :                  > SRAM
-    .stack        :                  > SRAM (HIGH)
-    .BCRConfig    : {}               > BCR_CONFIG
-    .BSLConfig    : {}               > BSL_CONFIG
+    .intvecs:   > 0x00000000
+    .text   : palign(8) {} > FLASH
+    .const  : palign(8) {} > FLASH
+    .cinit  : palign(8) {} > FLASH
+    .pinit  : palign(8) {} > FLASH
+    .rodata : palign(8) {} > FLASH
+    .ARM.exidx    :  palign(8)  {} > FLASH
+    .init_array   :  palign(8)  {} > FLASH
+    .binit        : palign(8) {} > FLASH
+    .TI.ramfunc      : load = FLASH, palign(8), run=SRAM, table(BINIT)
+
+    .vtable :   > SRAM
+    .args   :   > SRAM
+    .data   :   > SRAM
+    .bss    :   > SRAM
+    .sysmem :   > SRAM
+    .stack  :   > SRAM (HIGH)
+
+    .BCRConfig 		       : {} > BCR_CONFIG
+	  .BSLConfig			   : {} > BSL_CONFIG
 }

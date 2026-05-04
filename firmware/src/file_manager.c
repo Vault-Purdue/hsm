@@ -542,7 +542,7 @@ router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id) {
     if (direction == FM_DIR_READ) {
         uint8_t buf[FM_MAX_PAYLOAD_SIZE] = {0};
         if (fm_read_file(file_id, buf) == FM_OK) {
-            uart_send_frame(MSG_FILE_CONTENTS, buf, FM_MAX_PAYLOAD_SIZE);
+            router_send_encrypted_frame(MSG_FILE_CONTENTS, buf, FM_MAX_PAYLOAD_SIZE);
         }
         fm_pending.active = false;
     }
