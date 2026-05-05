@@ -53,15 +53,16 @@ int main(void) {
     delay_cycles(16000000);  /* ~500ms */
 
 #if CRYPTO_TEST
-    /* SKIPPED: session test (ECDH) fails post-INITDONE due to the chip's
-     * security model */
-    // if (!HSM_CRYPTOTEST_sessionTest()) {
-    //     lcd_status("FAIL_1");
-    //     while (1) {
-    //         STATUS_LED_ON();  delay_cycles(2000000);
-    //         STATUS_LED_OFF(); delay_cycles(16000000);
-    //     }
-    // }
+
+     lcd_status("TST1__");
+     delay_cycles(8000000);
+     if (!HSM_CRYPTOTEST_sessionTest()) {
+         lcd_status("FAIL_1");
+         while (1) {
+             STATUS_LED_ON();  delay_cycles(2000000);
+             STATUS_LED_OFF(); delay_cycles(16000000);
+         }
+    }
 
     lcd_status("TST2__");
     delay_cycles(8000000);
