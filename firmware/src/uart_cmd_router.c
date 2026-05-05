@@ -237,7 +237,8 @@ router_status_t router_dispatch(uart_frame_t *rx_frame) {
             }
 
             // authenticate and send ack
-            ack_payload = (authentication_engine(pin, pin_len) == AE_OK) ? 0 : 1;
+            auth_eng_status_t auth_res = authentication_engine(pin, pin_len);
+            ack_payload = auth_res == AE_OK ? 0 : 1;
             router_send_encrypted_frame(MSG_PIN_EXCHANGE_ACK, &ack_payload, 1);
 
             return RT_OK;

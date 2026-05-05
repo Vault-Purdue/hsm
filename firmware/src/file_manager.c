@@ -529,7 +529,7 @@ router_status_t fm_file_transfer_request(uint8_t direction, uint8_t file_id) {
         ack_payload = 0x01;
         uart_send_frame(MSG_FILE_REQUEST_ACK, &ack_payload, 1);
         fm_pending.active = false;
-        return RT_FAIL;
+        return RT_REJECTED;
     }
 
     fm_pending.active    = true;

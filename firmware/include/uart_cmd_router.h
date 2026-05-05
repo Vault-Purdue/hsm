@@ -41,5 +41,6 @@ router_status_t router_dispatch(uart_frame_t *rx_frame);
 router_status_t handle_file_transfer_request(uart_frame_t *frame);
 router_status_t handle_file_contents(uart_frame_t *frame);
 router_status_t router_send_encrypted_frame(uint8_t msg_id, const uint8_t *pt, size_t pt_len);
+void HSM_UART_ROUTER_clearSessionData(void);
 
 #endif /* UART_CMD_ROUTER_H */

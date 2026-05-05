@@ -91,7 +91,11 @@ int main(void) {
 
         router_status_t status = router_dispatch(&rx_frame);
         if (status == RT_FAIL) {
-            uart_send_debug_msg_with_str("ERROR: Router dispatch failed for msg_id", msg_id_to_str(rx_frame.msg_id));
+            // router failed, tear down the session and send a session close
+            HSM_UART_ROUTER_clearSessionData();
+            system_state_machine(EVENT_SESSION_CLOSE_USER);
+            uint8_t close_payload = 0x43;
+            uart_send_frame(MSG_SESSION_CLOSE, &close_payload, 1);
             continue;
         }
         
