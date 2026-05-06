@@ -15,6 +15,7 @@
 #include <ti/driverlib/driverlib.h>
 
 #define PROVISIONING_MAGIC (0xC0FFEE42UL)
+#pragma GCC optimize("O0")
 
 static void secure_zero(void *ptr, size_t len)
 {
@@ -27,15 +28,21 @@ static void secure_zero(void *ptr, size_t len)
 // CSC_boot()
 int CSC_boot(void)
 {
-    /* Reject if called after INITDONE — device is no longer privileged */
-    if (DL_SYSCTL_isINITDONEIssued()) {
-        return CSC_BOOT_ERR_LATE;
-    }
-
     uint32_t magic = 0;
     flash_read(CSC_LOCK_STORAGE_ADDR, &magic, sizeof(magic));
-
     bool first_boot = (magic != PROVISIONING_MAGIC);
+
+    /* INITDONE persists across soft resets on MSPM0.
+      If already issued AND device is provisioned nothing to do, proceed. */
+    if (DL_SYSCTL_isINITDONEIssued() && !first_boot) {
+        return CSC_BOOT_OK;
+    }
+
+    /* INITDONE already issued but device not provisioned fatal,
+     * needs power cycle to recover privileged state. */
+    if (DL_SYSCTL_isINITDONEIssued() && first_boot) {
+        return CSC_BOOT_ERR_LATE;
+    }
 
     if (first_boot) {
 

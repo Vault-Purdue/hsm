@@ -21,8 +21,8 @@
 #define VALID_FILE 0xDEADFFFF
 
 // TODO: Define valid memory addresses
-#define FLASH_BASE_KEY    0x00010000 
-#define FLASH_BASE_FILE   0x00010400
+#define FLASH_BASE_FILE   0x00038000
+#define FLASH_BASE_KEY    0x00039000
 #define FM_DIR_WRITE 0x77
 #define FM_DIR_READ  0x72
 

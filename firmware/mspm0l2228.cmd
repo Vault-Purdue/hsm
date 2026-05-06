@@ -36,11 +36,13 @@
 
 MEMORY
 {
-FLASH (RX)      : origin = 0x00000000, length = 0x00040000,
-SRAM (RWX)      : origin = 0x20200000, length = 0x00008000,
-/* Non-Main configuration memory */
-BCR_CONFIG(R)   : origin = 0x41C00000, length = 0x000000FF,
-BSL_CONFIG(R)   : origin = 0x41C00100, length = 0x00000080,
+    FLASH        (RX)  : origin = 0x00000000, length = 0x00004000
+    SECRET       (RX)  : origin = 0x00004000, length = 0x00000400
+    LOCK_STORAGE (RX)  : origin = 0x00004400, length = 0x00000400
+    FLASH_APP    (RX)  : origin = 0x00004800, length = 0x0003B800
+    SRAM         (RWX) : origin = 0x20200000, length = 0x00008000
+    BCR_CONFIG   (R)   : origin = 0x41C00000, length = 0x00000100
+    BSL_CONFIG   (R)   : origin = 0x41C00100, length = 0x00000080
 }
 
 SECTIONS

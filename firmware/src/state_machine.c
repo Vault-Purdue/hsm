@@ -27,7 +27,7 @@
 
 SystemState system_state_machine(SystemStateEvent event) {
     
-#if DEBUG_SKIP_AUTH
+#if DEBUG_SKIP_AUTH == 1
     static SystemState state = STATE_UNLOCKED;
 #else
     static SystemState state = STATE_WAIT_FOR_UART;
