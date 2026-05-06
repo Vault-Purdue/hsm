@@ -391,7 +391,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_encryptFileKey(
 
     // Transfer key from KEYSTORE to AESADV
     // TODO: uncomment this out when CSC is implemented, remember to remove the hardcoded master key in the AES driver
-    // if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
+    if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
     
     // Generate IV
     (void) HSM_CRYPTO_generateIV(iv, ivlen);
@@ -539,7 +539,7 @@ HSM_CRYPTO_STATUS HSM_CRYPTO_decryptFileKey(
 
     // Transfer key from KEYSTORE to AESADV
     // TODO: uncomment this out when CSC is implemented, remember to remove the hardcoded master key in the AES driver
-    // if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
+    if (HSM_KEYSTORE_transferRootKeyToAES() != HSM_KEYSTORE_OK) return HSM_CRYPTO_ERR_KEYSTORE_FAIL;
 
     // Encrypt the key
     int result = AESADV_AESGCM256_decryptKey(

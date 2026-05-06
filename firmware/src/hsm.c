@@ -25,7 +25,6 @@
 /** @brief Initializes peripherals for system boot.
 */
 void init() {
-    SYS_initPower();
     // Initialize all of the hardware components
     GPIO_init();
     TIMER_0_init();
@@ -40,19 +39,24 @@ void init() {
 int main(void) {
     uart_frame_t rx_frame;
     SystemState sysState;
-#if 0
+
+    SYS_initPower();
+    HSM_TRNG_init();
     int csc_rc = CSC_boot();
     if (csc_rc != CSC_BOOT_OK) {
         //Error in CSC
         while (1) { __WFI(); }
     }
-    HSM_KEYSTORE_transferRootKeyToAES();
-#endif
-    // Initialize device peripherals
     init();
+
+    
+    HSM_KEYSTORE_transferRootKeyToAES();
+
+    // Initialize device peripherals
+    ;
     STATUS_LED_OFF();
 
-#ifdef CRYPTO_TEST
+#if CRYPTO_TEST == 1
     // Set breakpoint if we fail crypto session test
     if (!HSM_CRYPTOTEST_sessionTest()) {
         __BKPT();
