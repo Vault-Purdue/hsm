@@ -47,24 +47,24 @@ MEMORY
 
 SECTIONS
 {
-    .intvecs:   > 0x00000000
-    .text   : palign(8) {} > FLASH
-    .const  : palign(8) {} > FLASH
-    .cinit  : palign(8) {} > FLASH
-    .pinit  : palign(8) {} > FLASH
-    .rodata : palign(8) {} > FLASH
-    .ARM.exidx    :  palign(8)  {} > FLASH
-    .init_array   :  palign(8)  {} > FLASH
-    .binit        : palign(8) {} > FLASH
-    .TI.ramfunc      : load = FLASH, palign(8), run=SRAM, table(BINIT)
-
-    .vtable :   > SRAM
-    .args   :   > SRAM
-    .data   :   > SRAM
-    .bss    :   > SRAM
-    .sysmem :   > SRAM
-    .stack  :   > SRAM (HIGH)
-
-    .BCRConfig 		       : {} > BCR_CONFIG
-	  .BSLConfig			   : {} > BSL_CONFIG
+    .intvecs      :                  > 0x00000000
+    .text         : palign(8) {}     > FLASH | FLASH_APP
+    .const        : palign(8) {}     > FLASH | FLASH_APP
+    .cinit        : palign(8) {}     > FLASH | FLASH_APP
+    .pinit        : palign(8) {}     > FLASH | FLASH_APP
+    .rodata       : palign(8) {}     > FLASH | FLASH_APP
+    .ARM.exidx    : palign(8) {}     > FLASH | FLASH_APP
+    .init_array   : palign(8) {}     > FLASH | FLASH_APP
+    .binit        : palign(8) {}     > FLASH | FLASH_APP
+    .TI.ramfunc   : load = FLASH, palign(8), run = SRAM, table(BINIT)
+    .secret       : palign(8) {}     > SECRET
+    .lockStg      : (NOINIT) palign(8) {} > LOCK_STORAGE
+    .vtable       :                  > SRAM
+    .args         :                  > SRAM
+    .data         :                  > SRAM
+    .bss          :                  > SRAM
+    .sysmem       :                  > SRAM
+    .stack        :                  > SRAM (HIGH)
+    .BCRConfig    : {}               > BCR_CONFIG
+    .BSLConfig    : {}               > BSL_CONFIG
 }
