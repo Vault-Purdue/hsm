@@ -76,6 +76,7 @@ static void wait_output_ready() {
  * hardware to satisfy alignment requirements
  */
 static inline void load_key(const uint8_t key[32]) {
+    AESADV_init();
     memcpy(key_aligned, key, 32);
     DL_AESADV_setKeyAligned(AESADV, (uint32_t*) key_aligned, DL_AESADV_KEY_SIZE_256_BIT);
 }
